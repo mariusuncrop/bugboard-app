@@ -1,0 +1,372 @@
+openapi: 3.0.3
+info:
+  title: BugBoard API
+  version: 1.0.0
+  description: |
+    REST API behind the BugBoard demo app. Every endpoint except
+    `POST /api/auth/login`, `GET /api/health` and `POST /api/test/reset`
+    requires a bearer token obtained from the login endpoint.
+servers:
+  - url: http://localhost:4000
+    description: Local development
+tags:
+  - name: Auth
+  - name: Issues
+  - name: Comments
+  - name: Attachments
+  - name: Board
+  - name: Testing
+
+paths:
+  /api/health:
+    get:
+      tags: [Auth]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Service is up
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Exchange credentials for a bearer token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        '200':
+          description: The authenticated user
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Drop the session client side
+      security: []
+      responses:
+        '204': { description: Logged out }
+
+  /api/users:
+    get:
+      tags: [Auth]
+      summary: List users available as assignees
+      responses:
+        '200': { description: User list }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/issues:
+    get:
+      tags: [Issues]
+      summary: Search, filter and page through issues
+      parameters:
+        - { in: query, name: q, schema: { type: string }, description: Matches key, title and description }
+        - { in: query, name: status, schema: { type: string }, description: Comma separated statuses }
+        - { in: query, name: priority, schema: { type: string }, description: Comma separated priorities }
+        - { in: query, name: type, schema: { type: string }, description: Comma separated types }
+        - { in: query, name: assigneeId, schema: { type: string }, description: A user id, or "unassigned" }
+        - { in: query, name: label, schema: { type: string }, description: Comma separated labels, combined as OR }
+        - { in: query, name: sort, schema: { type: string, enum: [createdAt, updatedAt, priority, key, title], default: createdAt } }
+        - { in: query, name: order, schema: { type: string, enum: [asc, desc], default: desc } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        '200':
+          description: A page of issues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Issue' } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  total: { type: integer }
+                  totalPages: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Issues]
+      summary: Create an issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueInput' }
+      responses:
+        '201': { description: Created }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/issues/{idOrKey}:
+    parameters:
+      - { in: path, name: idOrKey, required: true, schema: { type: string }, description: 'Internal id or issue key, e.g. BUG-1' }
+    get:
+      tags: [Issues]
+      summary: Fetch one issue
+      responses:
+        '200': { description: The issue }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Issues]
+      summary: Update any subset of an issue's fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueInput' }
+      responses:
+        '200': { description: The updated issue }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Issues]
+      summary: Delete an issue and its comments and attachments
+      description: Requires the `admin` role.
+      responses:
+        '204': { description: Deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/issues/{idOrKey}/move:
+    parameters:
+      - { in: path, name: idOrKey, required: true, schema: { type: string } }
+    post:
+      tags: [Board]
+      summary: Move an issue to a status and position (the board drag and drop)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/Status' }
+                position: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200': { description: The moved issue }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/issues/{idOrKey}/comments:
+    parameters:
+      - { in: path, name: idOrKey, required: true, schema: { type: string } }
+    get:
+      tags: [Comments]
+      summary: List comments on an issue
+      responses:
+        '200': { description: Comment list }
+    post:
+      tags: [Comments]
+      summary: Add a comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 2, maxLength: 2000 }
+      responses:
+        '201': { description: Created }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/comments/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    delete:
+      tags: [Comments]
+      summary: Delete a comment
+      description: Authors can delete their own comments; admins can delete any.
+      responses:
+        '204': { description: Deleted }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/issues/{idOrKey}/attachments:
+    parameters:
+      - { in: path, name: idOrKey, required: true, schema: { type: string } }
+    get:
+      tags: [Attachments]
+      summary: List attachments on an issue
+      responses:
+        '200': { description: Attachment list }
+    post:
+      tags: [Attachments]
+      summary: Upload an attachment (max 2 MB)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201': { description: Uploaded }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '413': { description: File exceeds the size limit }
+
+  /api/attachments/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      tags: [Attachments]
+      summary: Download an attachment
+      responses:
+        '200': { description: File contents }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Attachments]
+      summary: Delete an attachment
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/board:
+    get:
+      tags: [Board]
+      summary: Issues grouped into board columns, ordered by position
+      parameters:
+        - { in: query, name: assigneeId, schema: { type: string } }
+        - { in: query, name: priority, schema: { $ref: '#/components/schemas/Priority' } }
+      responses:
+        '200': { description: Board columns }
+
+  /api/stats:
+    get:
+      tags: [Board]
+      summary: Dashboard aggregates
+      description: Deliberately slow (see STATS_DELAY_MS) so the UI has a loading state to test.
+      responses:
+        '200': { description: Aggregate counts }
+
+  /api/test/reset:
+    post:
+      tags: [Testing]
+      summary: Restore the deterministic seed fixture
+      description: Available only when ENABLE_TEST_ENDPOINTS=true.
+      security: []
+      responses:
+        '200': { description: Database reset }
+        '404': { description: Test endpoints are disabled }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Status:
+      type: string
+      enum: [backlog, todo, in_progress, in_review, done]
+    Priority:
+      type: string
+      enum: [low, medium, high, critical]
+    IssueType:
+      type: string
+      enum: [bug, task]
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [admin, member] }
+        avatarColor: { type: string }
+    Issue:
+      type: object
+      properties:
+        id: { type: string }
+        key: { type: string, example: BUG-1 }
+        title: { type: string }
+        description: { type: string }
+        type: { $ref: '#/components/schemas/IssueType' }
+        status: { $ref: '#/components/schemas/Status' }
+        priority: { $ref: '#/components/schemas/Priority' }
+        assigneeId: { type: string, nullable: true }
+        reporterId: { type: string }
+        labels: { type: array, items: { type: string } }
+        position: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        commentCount: { type: integer }
+        attachmentCount: { type: integer }
+    IssueInput:
+      type: object
+      required: [title, type]
+      properties:
+        title: { type: string, minLength: 5, maxLength: 120 }
+        description: { type: string, maxLength: 5000 }
+        type: { $ref: '#/components/schemas/IssueType' }
+        status: { $ref: '#/components/schemas/Status' }
+        priority: { $ref: '#/components/schemas/Priority' }
+        assigneeId: { type: string, nullable: true }
+        labels: { type: array, maxItems: 5, items: { type: string } }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  message: { type: string }
+  responses:
+    ValidationError:
+      description: The request body or query string failed validation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Authenticated but not allowed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: No such resource
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+security:
+  - bearerAuth: []
