@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke test the API
+        run: |
+          npm start &
+          npx wait-on http://localhost:4000/api/health --timeout 60000
+          curl -fsS -X POST http://localhost:4000/api/test/reset | tee /dev/stderr | grep -q '"reset":true'
