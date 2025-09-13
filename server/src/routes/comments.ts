@@ -25,10 +25,9 @@ const resolveIssueId = (idOrKey: string): string => {
 
 export const commentsRouter = Router();
 
-commentsRouter.use(requireAuth);
-
 commentsRouter.get(
   '/issues/:idOrKey/comments',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const issueId = resolveIssueId(req.params.idOrKey!);
     res.json({
@@ -42,6 +41,7 @@ commentsRouter.get(
 
 commentsRouter.post(
   '/issues/:idOrKey/comments',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const issueId = resolveIssueId(req.params.idOrKey!);
     const body = parse(createSchema, req.body);
@@ -64,6 +64,7 @@ commentsRouter.post(
 
 commentsRouter.delete(
   '/comments/:id',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const comment = store.data.comments.find((candidate) => candidate.id === req.params.id);
     if (!comment) throw ApiError.notFound('No comment matches that id.');

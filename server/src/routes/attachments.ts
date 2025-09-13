@@ -34,10 +34,9 @@ const resolveIssueId = (idOrKey: string): string => {
 
 export const attachmentsRouter = Router();
 
-attachmentsRouter.use(requireAuth);
-
 attachmentsRouter.get(
   '/issues/:idOrKey/attachments',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const issueId = resolveIssueId(req.params.idOrKey!);
     res.json({
@@ -50,6 +49,7 @@ attachmentsRouter.get(
 
 attachmentsRouter.post(
   '/issues/:idOrKey/attachments',
+  requireAuth,
   upload.single('file'),
   asyncHandler(async (req, res) => {
     const issueId = resolveIssueId(req.params.idOrKey!);
@@ -86,6 +86,7 @@ attachmentsRouter.post(
 
 attachmentsRouter.get(
   '/attachments/:id',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const attachment = store.data.attachments.find((candidate) => candidate.id === req.params.id);
     if (!attachment) throw ApiError.notFound('No attachment matches that id.');
@@ -98,6 +99,7 @@ attachmentsRouter.get(
 
 attachmentsRouter.delete(
   '/attachments/:id',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const attachment = store.data.attachments.find((candidate) => candidate.id === req.params.id);
     if (!attachment) throw ApiError.notFound('No attachment matches that id.');
