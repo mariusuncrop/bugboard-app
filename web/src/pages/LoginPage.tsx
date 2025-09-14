@@ -20,7 +20,12 @@ export function LoginPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) return <Navigate to="/board" replace />;
+  // Where RequireAuth sent this visitor from, so signing in returns them there.
+  const from = (location.state as { from?: string } | null)?.from ?? '/board';
+
+  // This renders the moment login succeeds, so it — not the navigate below —
+  // decides the destination. Both have to agree.
+  if (user) return <Navigate to={from} replace />;
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
@@ -39,8 +44,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(email.trim(), password);
-      const from = (location.state as { from?: string } | null)?.from;
-      navigate(from ?? '/board', { replace: true });
+      navigate(from, { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors(error.fieldErrors);
