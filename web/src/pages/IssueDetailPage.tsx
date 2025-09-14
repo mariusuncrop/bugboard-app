@@ -270,7 +270,7 @@ export function IssueDetailPage() {
                       <strong data-testid="comment-author">{comment.author?.name ?? 'Unknown'}</strong>
                       <span className="muted"> · {formatDateTime(comment.createdAt)}</span>
                     </p>
-                    <p data-testid="comment-body">{comment.body}</p>
+                    <p data-testid="comment-text">{comment.body}</p>
                   </div>
                   {comment.authorId === user?.id || user?.role === 'admin' ? (
                     <button

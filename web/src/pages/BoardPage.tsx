@@ -123,7 +123,7 @@ export function BoardPage() {
                 </span>
               </header>
 
-              <div className="column__body">
+              <div className="column__body" data-testid={`column-body-${column.status}`}>
                 {column.issues.length === 0 ? (
                   <p className="column__empty" data-testid={`column-empty-${column.status}`}>
                     Nothing here
@@ -144,6 +144,9 @@ export function BoardPage() {
                       setDragging(issue.key);
                     }}
                     onDragEnd={() => setDragging(null)}
+                    // A drop only fires on an element that allowed it, and a
+                    // card sits above its column, so it has to opt in too.
+                    onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => onDrop(event, column.status, index)}
                   >
                     <div className="issue-card__top">
