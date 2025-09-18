@@ -18,7 +18,8 @@ export const SEED_USERS: User[] = [
     name: 'Ada Whitfield',
     password: 'Password123!',
     role: 'admin',
-    avatarColor: '#6366f1',
+    // Avatar colours carry white initials, so each one clears 4.5:1 against white.
+    avatarColor: '#4338ca',
   },
   {
     id: 'usr_dev',
@@ -26,7 +27,7 @@ export const SEED_USERS: User[] = [
     name: 'Marco Reyes',
     password: 'Password123!',
     role: 'member',
-    avatarColor: '#0ea5e9',
+    avatarColor: '#0369a1',
   },
   {
     id: 'usr_qa',
@@ -34,7 +35,7 @@ export const SEED_USERS: User[] = [
     name: 'Priya Natarajan',
     password: 'Password123!',
     role: 'member',
-    avatarColor: '#14b8a6',
+    avatarColor: '#0f766e',
   },
   {
     id: 'usr_pm',
@@ -42,7 +43,7 @@ export const SEED_USERS: User[] = [
     name: 'Jonas Lindqvist',
     password: 'Password123!',
     role: 'member',
-    avatarColor: '#f59e0b',
+    avatarColor: '#b45309',
   },
 ];
 
