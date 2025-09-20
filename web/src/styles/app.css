@@ -320,6 +320,10 @@ input[aria-invalid='true'] { border-color: var(--danger); }
   gap: 0.75rem;
   overflow-x: auto;
   padding-bottom: 0.75rem;
+  /* Without containment, the columns' combined intrinsic width widens the
+     layout viewport on mobile Chrome, which pushes fixed-position elements —
+     the toast stack — off screen even though the board itself scrolls. */
+  contain: content;
 }
 
 .column {
