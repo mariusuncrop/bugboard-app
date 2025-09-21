@@ -9,6 +9,23 @@ pagination, file upload, role-based permissions. The companion repository
 
 ![The BugBoard kanban board](docs/board.png)
 
+<details>
+<summary>More screenshots</summary>
+
+**Issue list** — search, filters, sorting and pagination, all held in the URL
+
+![The issue list](docs/issue-list.png)
+
+**Issue detail** — inline editing, comments, attachments
+
+![An issue's detail page](docs/issue-detail.png)
+
+**Dark theme**
+
+![The board in dark mode](docs/board-dark.png)
+
+</details>
+
 ## Quick start
 
 ```bash
