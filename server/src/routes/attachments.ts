@@ -12,17 +12,6 @@ const upload = multer({
   limits: { fileSize: config.maxUploadBytes, files: 1 },
 });
 
-const ALLOWED_MIME = [
-  'image/png',
-  'image/jpeg',
-  'image/gif',
-  'image/webp',
-  'text/plain',
-  'text/csv',
-  'application/json',
-  'application/pdf',
-];
-
 const resolveIssueId = (idOrKey: string): string => {
   const needle = idOrKey.toLowerCase();
   const issue = store.data.issues.find(
@@ -59,7 +48,7 @@ attachmentsRouter.post(
         { path: 'file', message: 'Attach a file using the "file" field.' },
       ]);
     }
-    if (!ALLOWED_MIME.includes(file.mimetype)) {
+    if (!config.allowedUploadTypes.includes(file.mimetype)) {
       throw ApiError.badRequest('The request body is invalid.', [
         { path: 'file', message: `Unsupported file type "${file.mimetype}".` },
       ]);

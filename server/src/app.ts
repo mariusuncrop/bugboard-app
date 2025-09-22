@@ -8,6 +8,7 @@ import { ApiError, errorHandler } from './lib/http.js';
 import { attachmentsRouter } from './routes/attachments.js';
 import { authRouter } from './routes/auth.js';
 import { boardRouter } from './routes/board.js';
+import { configRouter } from './routes/config.js';
 import { commentsRouter } from './routes/comments.js';
 import { issuesRouter } from './routes/issues.js';
 import { statsRouter } from './routes/stats.js';
@@ -44,6 +45,7 @@ export function createApp(): Express {
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/board', boardRouter);
+  app.use('/api/config', configRouter);
   app.use('/api/stats', statsRouter);
   app.use('/api/test', testRouter);
   app.use('/api', commentsRouter);

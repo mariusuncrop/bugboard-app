@@ -260,6 +260,26 @@ paths:
       responses:
         '200': { description: Board columns }
 
+  /api/config:
+    get:
+      tags: [Board]
+      summary: Client-facing limits
+      description: The upload rules, so a client can reject a file before sending it.
+      responses:
+        '200':
+          description: Configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    type: object
+                    properties:
+                      maxBytes: { type: integer, example: 2097152 }
+                      allowedMimeTypes: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/stats:
     get:
       tags: [Board]

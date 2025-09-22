@@ -11,5 +11,17 @@ export const config = {
   /** Artificial latency on GET /api/stats so the UI has a loading state to test. */
   statsDelayMs: toInt(process.env.STATS_DELAY_MS, 1200),
   maxUploadBytes: toInt(process.env.MAX_UPLOAD_BYTES, 2 * 1024 * 1024),
+  /** Media types an attachment may use. Served to the client so it can reject a
+      file before creating anything, rather than after. */
+  allowedUploadTypes: [
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'text/plain',
+    'text/csv',
+    'application/json',
+    'application/pdf',
+  ],
   tokenTtlSeconds: toInt(process.env.TOKEN_TTL_SECONDS, 60 * 60 * 8),
 };
