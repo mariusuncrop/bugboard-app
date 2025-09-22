@@ -21,6 +21,11 @@ export class ApiError extends Error {
   get fieldErrors(): Record<string, string> {
     return Object.fromEntries(this.details.map((detail) => [detail.path, detail.message]));
   }
+
+  /** The most specific message available, for a toast or an inline error. */
+  get detail(): string {
+    return this.details[0]?.message ?? this.message;
+  }
 }
 
 export const tokenStore = {
@@ -28,6 +33,34 @@ export const tokenStore = {
   set: (token: string): void => localStorage.setItem(TOKEN_KEY, token),
   clear: (): void => localStorage.removeItem(TOKEN_KEY),
 };
+
+/**
+ * Multipart upload. Kept separate from `request` because the browser has to set
+ * its own multipart boundary — sending an explicit Content-Type breaks it.
+ */
+export async function upload<T>(path: string, file: File): Promise<T> {
+  const body = new FormData();
+  body.append('file', file);
+
+  const headers: Record<string, string> = {};
+  const token = tokenStore.get();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${BASE_URL}/api${path}`, { method: 'POST', headers, body });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const error = payload?.error ?? {};
+    throw new ApiError(
+      response.status,
+      error.code ?? 'UNKNOWN',
+      error.message ?? `Upload failed with status ${response.status}.`,
+      error.details ?? [],
+    );
+  }
+
+  return payload as T;
+}
 
 interface RequestOptions {
   method?: string;

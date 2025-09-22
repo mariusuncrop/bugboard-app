@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, request, tokenStore } from '../lib/api';
+import { ApiError, request, upload } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDateTime } from '../lib/format';
 import { useToast } from '../lib/toast';
@@ -113,22 +113,12 @@ export function IssueDetailPage() {
     if (!file) return;
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
     try {
-      const response = await fetch(`/api/issues/${key}/attachments`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tokenStore.get() ?? ''}` },
-        body: formData,
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error?.details?.[0]?.message ?? payload?.error?.message ?? 'Upload failed.');
-      }
-      setAttachments((current) => [...current, payload.attachment]);
+      const { attachment } = await upload<{ attachment: Attachment }>(`/issues/${key}/attachments`, file);
+      setAttachments((current) => [...current, attachment]);
       notify(`${file.name} uploaded.`);
     } catch (error) {
-      notify(error instanceof Error ? error.message : 'Upload failed.', 'error');
+      notify(error instanceof ApiError ? error.detail : 'Upload failed.', 'error');
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = '';
