@@ -1,7 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ApiError, request } from '../lib/api';
+import { ApiError, request, upload } from '../lib/api';
+import { formatBytes } from '../lib/format';
 import { useToast } from '../lib/toast';
+import { fetchUploadRules, rejectionReason, type UploadRules } from '../lib/uploads';
 import {
   ISSUE_TYPES,
   PRIORITIES,
@@ -20,6 +22,13 @@ export function NewIssuePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Files are held here until the issue exists — attachments hang off an issue
+  // id, so there is nothing to attach them to until it has been created.
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploadRules, setUploadRules] = useState<UploadRules | null>(null);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -34,7 +43,28 @@ export function NewIssuePage() {
     request<{ items: UserSummary[] }>('/users')
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
+    fetchUploadRules()
+      .then(setUploadRules)
+      .catch(() => undefined);
   }, []);
+
+  const addFiles = (event: ChangeEvent<HTMLInputElement>) => {
+    const chosen = Array.from(event.target.files ?? []);
+    if (fileInput.current) fileInput.current.value = '';
+    if (chosen.length === 0 || !uploadRules) return;
+
+    const rejected = chosen.map((file) => rejectionReason(file, uploadRules)).filter(Boolean);
+    const accepted = chosen.filter((file) => !rejectionReason(file, uploadRules));
+
+    setPendingFiles((current) => [
+      ...current,
+      ...accepted.filter((file) => !current.some((existing) => existing.name === file.name)),
+    ]);
+    setErrors((current) => ({ ...current, attachments: rejected.join(' ') }));
+  };
+
+  const removeFile = (name: string) =>
+    setPendingFiles((current) => current.filter((file) => file.name !== name));
 
   const set = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -52,6 +82,7 @@ export function NewIssuePage() {
     if (!validate()) return;
 
     setSubmitting(true);
+    let issueKey: string | null = null;
     try {
       const response = await request<{ issue: Issue }>('/issues', {
         method: 'POST',
@@ -68,8 +99,7 @@ export function NewIssuePage() {
             .filter(Boolean),
         },
       });
-      notify(`${response.issue.key} created.`);
-      navigate(`/issues/${response.issue.key}`);
+      issueKey = response.issue.key;
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors(error.fieldErrors);
@@ -77,9 +107,34 @@ export function NewIssuePage() {
       } else {
         setFormError('Could not reach the server.');
       }
-    } finally {
       setSubmitting(false);
+      return;
     }
+
+    // The issue now exists. An upload that fails from here must not look like a
+    // failed creation, so say what happened and still open the issue.
+    const failures: string[] = [];
+    for (const [index, file] of pendingFiles.entries()) {
+      setProgress({ current: index + 1, total: pendingFiles.length });
+      try {
+        await upload(`/issues/${issueKey}/attachments`, file);
+      } catch (error) {
+        failures.push(error instanceof ApiError ? error.detail : `${file.name} could not be uploaded.`);
+      }
+    }
+    setProgress(null);
+    setSubmitting(false);
+
+    if (failures.length > 0) {
+      notify(`${issueKey} created, but ${failures.length} file could not be attached.`, 'error');
+    } else if (pendingFiles.length > 0) {
+      const count = pendingFiles.length;
+      notify(`${issueKey} created with ${count} file${count === 1 ? '' : 's'} attached.`);
+    } else {
+      notify(`${issueKey} created.`);
+    }
+
+    navigate(`/issues/${issueKey}`);
   };
 
   return (
@@ -215,12 +270,62 @@ export function NewIssuePage() {
           </div>
         </div>
 
+        <div className="field">
+          <label htmlFor="attachments">Attachments</label>
+          {uploadRules ? (
+            <>
+              <input
+                ref={fileInput}
+                id="attachments"
+                type="file"
+                multiple
+                data-testid="issue-attachment-input"
+                onChange={addFiles}
+              />
+              <p className="field__hint">
+                Up to {formatBytes(uploadRules.maxBytes)} each, attached once the issue is created.
+              </p>
+            </>
+          ) : (
+            <p className="field__hint" data-testid="attachments-loading">
+              Checking the upload limits…
+            </p>
+          )}
+          {errors.attachments ? (
+            <p className="field__error" data-testid="error-attachments">
+              {errors.attachments}
+            </p>
+          ) : null}
+
+          <ul className="list" data-testid="pending-attachments">
+            {pendingFiles.map((file) => (
+              <li key={file.name} data-testid={`pending-attachment-${file.name}`}>
+                {file.name}
+                <span className="muted"> · {formatBytes(file.size)}</span>
+                <button
+                  type="button"
+                  className="link link--danger"
+                  data-testid={`remove-pending-${file.name}`}
+                  onClick={() => removeFile(file.name)}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+            {pendingFiles.length === 0 ? (
+              <li className="muted" data-testid="pending-attachments-empty">
+                No files chosen.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+
         <div className="form__actions">
           <Link to="/issues" className="button button--ghost" data-testid="issue-cancel">
             Cancel
           </Link>
           <button type="submit" className="button button--primary" data-testid="issue-submit" disabled={submitting}>
-            {submitting ? 'Creating…' : 'Create issue'}
+            {progress ? `Uploading ${progress.current} of ${progress.total}…` : submitting ? 'Creating…' : 'Create issue'}
           </button>
         </div>
       </form>

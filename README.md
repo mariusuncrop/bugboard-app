@@ -69,6 +69,7 @@ click one.
 | Create and edit forms with field-level validation | Client-side rules, mirrored by server-side rules that return per-field errors |
 | Comments | Create, delete, and permission rules (authors and admins only) |
 | File attachments | Multipart upload, a 2 MB cap, and a rejected MIME type list |
+| Attaching files while filing an issue | Files are held client-side until the issue exists, then uploaded — a multi-step flow where the second step can fail on its own |
 | Toasts, modals and confirmation dialogs | Transient UI that tests have to wait for rather than sleep through |
 | A deliberately slow dashboard endpoint | A loading state that actually exists long enough to assert on |
 | Role-based permissions | `member` gets `403 FORBIDDEN` where `admin` gets `204` |
@@ -127,6 +128,7 @@ POST   /api/issues/:idOrKey/attachments   multipart, field "file", max 2 MB
 GET    /api/attachments/:id
 DELETE /api/attachments/:id
 
+GET    /api/config                  upload limits, so a client can reject a file before sending it
 GET    /api/board                   issues grouped into columns
 GET    /api/stats                   dashboard aggregates (deliberately slow)
 POST   /api/test/reset              restore the seed fixture
