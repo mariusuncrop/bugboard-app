@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, request, upload } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDateTime } from '../lib/format';
 import { useToast } from '../lib/toast';
+import { fetchUploadRules, rejectionReason, type UploadRules } from '../lib/uploads';
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -17,6 +18,7 @@ import {
 import { Avatar } from '../components/Avatar';
 import { Label, PriorityBadge, StatusBadge, TypeBadge } from '../components/Badge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FileDropZone } from '../components/FileDropZone';
 import { Spinner } from '../components/Spinner';
 
 export function IssueDetailPage() {
@@ -24,12 +26,12 @@ export function IssueDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { notify } = useToast();
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const [issue, setIssue] = useState<Issue | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [uploadRules, setUploadRules] = useState<UploadRules | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [commentBody, setCommentBody] = useState('');
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -61,6 +63,9 @@ export function IssueDetailPage() {
   useEffect(() => {
     request<{ items: UserSummary[] }>('/users')
       .then((response) => setUsers(response.items))
+      .catch(() => undefined);
+    fetchUploadRules()
+      .then(setUploadRules)
       .catch(() => undefined);
   }, []);
 
@@ -108,21 +113,29 @@ export function IssueDetailPage() {
     }
   };
 
-  const uploadFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const uploadFiles = async (chosen: File[]) => {
+    if (!uploadRules) return;
+
+    // Refuse locally what the server would refuse anyway, so a 3 MB file is not
+    // sent up the wire only to come back rejected.
+    for (const reason of chosen.map((file) => rejectionReason(file, uploadRules)).filter(Boolean)) {
+      notify(reason!, 'error');
+    }
+
+    const accepted = chosen.filter((file) => !rejectionReason(file, uploadRules));
+    if (accepted.length === 0) return;
 
     setUploading(true);
-    try {
-      const { attachment } = await upload<{ attachment: Attachment }>(`/issues/${key}/attachments`, file);
-      setAttachments((current) => [...current, attachment]);
-      notify(`${file.name} uploaded.`);
-    } catch (error) {
-      notify(error instanceof ApiError ? error.detail : 'Upload failed.', 'error');
-    } finally {
-      setUploading(false);
-      if (fileInput.current) fileInput.current.value = '';
+    for (const file of accepted) {
+      try {
+        const { attachment } = await upload<{ attachment: Attachment }>(`/issues/${key}/attachments`, file);
+        setAttachments((current) => [...current, attachment]);
+        notify(`${file.name} uploaded.`);
+      } catch (error) {
+        notify(error instanceof ApiError ? error.detail : `${file.name} could not be uploaded.`, 'error');
+      }
     }
+    setUploading(false);
   };
 
   const removeAttachment = async (id: string) => {
@@ -239,10 +252,23 @@ export function IssueDetailPage() {
               ) : null}
             </ul>
 
-            <label className="field">
-              <span>Add a file (max 2 MB)</span>
-              <input ref={fileInput} type="file" data-testid="attachment-input" onChange={uploadFile} />
-            </label>
+            <div className="field">
+              <label htmlFor="issue-attachment">Add files</label>
+              {uploadRules ? (
+                <FileDropZone
+                  inputId="issue-attachment"
+                  inputTestId="attachment-input"
+                  dropZoneTestId="attachment-dropzone"
+                  multiple
+                  hint={`Up to ${formatBytes(uploadRules.maxBytes)} each.`}
+                  onFiles={uploadFiles}
+                />
+              ) : (
+                <p className="field__hint" data-testid="attachments-loading">
+                  Checking the upload limits…
+                </p>
+              )}
+            </div>
             {uploading ? <Spinner label="Uploading" testId="attachment-uploading" /> : null}
           </div>
 

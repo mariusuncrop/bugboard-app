@@ -69,6 +69,7 @@ click one.
 | Create and edit forms with field-level validation | Client-side rules, mirrored by server-side rules that return per-field errors |
 | Comments | Create, delete, and permission rules (authors and admins only) |
 | File attachments | Multipart upload, a 2 MB cap, and a rejected MIME type list |
+| Drag and drop | A drop zone on both the issue page and the creation form, wrapped around a real file input so the pointer gesture is never the only way in |
 | Attaching files while filing an issue | Files are held client-side until the issue exists, then uploaded — a multi-step flow where the second step can fail on its own |
 | Toasts, modals and confirmation dialogs | Transient UI that tests have to wait for rather than sleep through |
 | A deliberately slow dashboard endpoint | A loading state that actually exists long enough to assert on |

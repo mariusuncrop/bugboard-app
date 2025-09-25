@@ -506,3 +506,36 @@ input[aria-invalid='true'] { border-color: var(--danger); }
 .field > .assignee {
   justify-self: start;
 }
+
+/* File drop zone ---------------------------------------------------------- */
+.dropzone {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.dropzone--active {
+  border-color: var(--accent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-alt));
+}
+
+.dropzone__prompt {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.dropzone input[type='file'] {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropzone { transition: none; }
+}

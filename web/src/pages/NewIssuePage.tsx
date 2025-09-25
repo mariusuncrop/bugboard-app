@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError, request, upload } from '../lib/api';
 import { formatBytes } from '../lib/format';
 import { useToast } from '../lib/toast';
 import { fetchUploadRules, rejectionReason, type UploadRules } from '../lib/uploads';
+import { FileDropZone } from '../components/FileDropZone';
 import {
   ISSUE_TYPES,
   PRIORITIES,
@@ -24,7 +25,6 @@ export function NewIssuePage() {
 
   // Files are held here until the issue exists — attachments hang off an issue
   // id, so there is nothing to attach them to until it has been created.
-  const fileInput = useRef<HTMLInputElement>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadRules, setUploadRules] = useState<UploadRules | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
@@ -48,9 +48,7 @@ export function NewIssuePage() {
       .catch(() => undefined);
   }, []);
 
-  const addFiles = (event: ChangeEvent<HTMLInputElement>) => {
-    const chosen = Array.from(event.target.files ?? []);
-    if (fileInput.current) fileInput.current.value = '';
+  const addFiles = (chosen: File[]) => {
     if (chosen.length === 0 || !uploadRules) return;
 
     const rejected = chosen.map((file) => rejectionReason(file, uploadRules)).filter(Boolean);
@@ -273,19 +271,14 @@ export function NewIssuePage() {
         <div className="field">
           <label htmlFor="attachments">Attachments</label>
           {uploadRules ? (
-            <>
-              <input
-                ref={fileInput}
-                id="attachments"
-                type="file"
-                multiple
-                data-testid="issue-attachment-input"
-                onChange={addFiles}
-              />
-              <p className="field__hint">
-                Up to {formatBytes(uploadRules.maxBytes)} each, attached once the issue is created.
-              </p>
-            </>
+            <FileDropZone
+              inputId="attachments"
+              inputTestId="issue-attachment-input"
+              dropZoneTestId="issue-attachment-dropzone"
+              multiple
+              hint={`Up to ${formatBytes(uploadRules.maxBytes)} each, attached once the issue is created.`}
+              onFiles={addFiles}
+            />
           ) : (
             <p className="field__hint" data-testid="attachments-loading">
               Checking the upload limits…
