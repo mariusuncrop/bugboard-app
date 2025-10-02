@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { request } from '../lib/api';
 import { formatDate } from '../lib/format';
+import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import {
   ISSUE_TYPES,
@@ -21,6 +22,7 @@ import { Spinner } from '../components/Spinner';
 const PAGE_SIZE = 10;
 
 export function IssuesPage() {
+  const { projectKey = '' } = useParams();
   const { notify } = useToast();
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState<Page<Issue> | null>(null);
@@ -62,15 +64,15 @@ export function IssuesPage() {
   }, [search]);
 
   useEffect(() => {
-    request<{ items: UserSummary[] }>('/users')
+    request<{ items: UserSummary[] }>(`/projects/${projectKey}/members`)
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
-  }, []);
+  }, [projectKey]);
 
   useEffect(() => {
     let cancelled = false;
     setPage(null);
-    request<Page<Issue>>('/issues', { query: { ...query, pageSize: PAGE_SIZE } })
+    request<Page<Issue>>(`/projects/${projectKey}/issues`, { query: { ...query, pageSize: PAGE_SIZE } })
       .then((response) => {
         if (!cancelled) setPage(response);
       })
@@ -78,7 +80,7 @@ export function IssuesPage() {
     return () => {
       cancelled = true;
     };
-  }, [query, notify]);
+  }, [query, notify, projectKey]);
 
   const toggleSort = (field: string) => {
     const order = query.sort === field && query.order === 'desc' ? 'asc' : 'desc';
@@ -92,7 +94,7 @@ export function IssuesPage() {
           <h1>Issues</h1>
           <p className="muted">Search, filter and page through every bug and task.</p>
         </div>
-        <Link to="/issues/new" className="button button--primary" data-testid="issues-new-button">
+        <Link to={projectPath(projectKey, "/issues/new")} className="button button--primary" data-testid="issues-new-button">
           New issue
         </Link>
       </header>
@@ -221,12 +223,12 @@ export function IssuesPage() {
               {page.items.map((issue) => (
                 <tr key={issue.id} data-testid={`issue-row-${issue.key}`} data-issue-key={issue.key}>
                   <td>
-                    <Link to={`/issues/${issue.key}`} data-testid="row-key">
+                    <Link to={projectPath(projectKey, `/issues/${issue.key}`)} data-testid="row-key">
                       {issue.key}
                     </Link>
                   </td>
                   <td data-testid="row-title">
-                    <Link to={`/issues/${issue.key}`}>{issue.title}</Link>
+                    <Link to={projectPath(projectKey, `/issues/${issue.key}`)}>{issue.title}</Link>
                   </td>
                   <td>
                     <TypeBadge type={issue.type} />

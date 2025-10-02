@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, request, upload } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatBytes, formatDateTime } from '../lib/format';
+import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import { fetchUploadRules, rejectionReason, type UploadRules } from '../lib/uploads';
 import {
@@ -22,7 +23,7 @@ import { FileDropZone } from '../components/FileDropZone';
 import { Spinner } from '../components/Spinner';
 
 export function IssueDetailPage() {
-  const { key = '' } = useParams();
+  const { projectKey = '', issueKey: key = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { notify } = useToast();
@@ -61,13 +62,13 @@ export function IssueDetailPage() {
   }, [load, notify]);
 
   useEffect(() => {
-    request<{ items: UserSummary[] }>('/users')
+    request<{ items: UserSummary[] }>(`/projects/${projectKey}/members`)
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
     fetchUploadRules()
       .then(setUploadRules)
       .catch(() => undefined);
-  }, []);
+  }, [projectKey]);
 
   const patch = async (body: Record<string, unknown>, message: string) => {
     try {
@@ -153,7 +154,7 @@ export function IssueDetailPage() {
     try {
       await request<void>(`/issues/${key}`, { method: 'DELETE' });
       notify(`${key} deleted.`);
-      navigate('/issues');
+      navigate(projectPath(projectKey, '/issues'));
     } catch (error) {
       notify(error instanceof ApiError ? error.message : 'Could not delete the issue.', 'error');
       setConfirmingDelete(false);
@@ -169,7 +170,7 @@ export function IssueDetailPage() {
         <p className="muted">
           No issue matches <code>{key}</code>.
         </p>
-        <Link to="/issues" className="button button--ghost">
+        <Link to={projectPath(projectKey, "/issues")} className="button button--ghost">
           Back to issues
         </Link>
       </section>
@@ -183,7 +184,7 @@ export function IssueDetailPage() {
       <header className="page__header">
         <div>
           <p className="breadcrumb">
-            <Link to="/issues" data-testid="back-to-issues">
+            <Link to={projectPath(projectKey, "/issues")} data-testid="back-to-issues">
               Issues
             </Link>{' '}
             / <span data-testid="issue-key">{issue.key}</span>

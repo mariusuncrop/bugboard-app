@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type DragEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ApiError, request } from '../lib/api';
+import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS, type BoardColumn, type Issue, type Status, type UserSummary } from '../lib/types';
 import { Avatar } from '../components/Avatar';
@@ -8,6 +9,7 @@ import { Label, PriorityBadge, TypeBadge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 export function BoardPage() {
+  const { projectKey = '' } = useParams();
   const { notify } = useToast();
   const [columns, setColumns] = useState<BoardColumn[] | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -17,11 +19,11 @@ export function BoardPage() {
   const [dropTarget, setDropTarget] = useState<Status | null>(null);
 
   const loadBoard = useCallback(async () => {
-    const response = await request<{ columns: BoardColumn[] }>('/board', {
+    const response = await request<{ columns: BoardColumn[] }>(`/projects/${projectKey}/board`, {
       query: { assigneeId, priority },
     });
     setColumns(response.columns);
-  }, [assigneeId, priority]);
+  }, [assigneeId, priority, projectKey]);
 
   useEffect(() => {
     setColumns(null);
@@ -29,10 +31,12 @@ export function BoardPage() {
   }, [loadBoard, notify]);
 
   useEffect(() => {
-    request<{ items: UserSummary[] }>('/users')
+    // Only project members can be assigned work here, so only they can be
+    // filtered by.
+    request<{ items: UserSummary[] }>(`/projects/${projectKey}/members`)
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
-  }, []);
+  }, [projectKey]);
 
   const move = async (issue: Issue, status: Status, position: number) => {
     if (issue.status === status && issue.position === position) return;
@@ -150,13 +154,13 @@ export function BoardPage() {
                     onDrop={(event) => onDrop(event, column.status, index)}
                   >
                     <div className="issue-card__top">
-                      <Link to={`/issues/${issue.key}`} className="issue-card__key" data-testid="issue-card-key">
+                      <Link to={projectPath(projectKey, `/issues/${issue.key}`)} className="issue-card__key" data-testid="issue-card-key">
                         {issue.key}
                       </Link>
                       <TypeBadge type={issue.type} />
                     </div>
 
-                    <Link to={`/issues/${issue.key}`} className="issue-card__title" data-testid="issue-card-title">
+                    <Link to={projectPath(projectKey, `/issues/${issue.key}`)} className="issue-card__title" data-testid="issue-card-title">
                       {issue.title}
                     </Link>
 

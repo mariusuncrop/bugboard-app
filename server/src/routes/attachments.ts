@@ -2,24 +2,19 @@ import { Router } from 'express';
 import multer from 'multer';
 import { config } from '../config.js';
 import { requireAuth } from '../lib/auth.js';
+import { findVisibleIssue } from '../lib/projects.js';
 import { ApiError, asyncHandler } from '../lib/http.js';
 import { attachmentDto } from '../lib/serialize.js';
 import { store } from '../store.js';
-import type { Attachment } from '../types.js';
+import type { Attachment, PublicUser } from '../types.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: config.maxUploadBytes, files: 1 },
 });
 
-const resolveIssueId = (idOrKey: string): string => {
-  const needle = idOrKey.toLowerCase();
-  const issue = store.data.issues.find(
-    (candidate) => candidate.id.toLowerCase() === needle || candidate.key.toLowerCase() === needle,
-  );
-  if (!issue) throw ApiError.notFound(`No issue matches "${idOrKey}".`);
-  return issue.id;
-};
+/** Resolves the issue and refuses it outright if the caller cannot see its project. */
+const resolveIssueId = (user: PublicUser, idOrKey: string): string => findVisibleIssue(user, idOrKey).id;
 
 export const attachmentsRouter = Router();
 
@@ -27,7 +22,7 @@ attachmentsRouter.get(
   '/issues/:idOrKey/attachments',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const issueId = resolveIssueId(req.params.idOrKey!);
+    const issueId = resolveIssueId(req.user!, req.params.idOrKey!);
     res.json({
       items: store.data.attachments
         .filter((attachment) => attachment.issueId === issueId)
@@ -41,7 +36,7 @@ attachmentsRouter.post(
   requireAuth,
   upload.single('file'),
   asyncHandler(async (req, res) => {
-    const issueId = resolveIssueId(req.params.idOrKey!);
+    const issueId = resolveIssueId(req.user!, req.params.idOrKey!);
     const file = req.file;
     if (!file) {
       throw ApiError.badRequest('The request body is invalid.', [

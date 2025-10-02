@@ -18,8 +18,23 @@ export interface User {
   avatarColor: string;
 }
 
+export interface Project {
+  id: string;
+  /** Short uppercase code. Prefixes every issue key, and names the project in URLs. */
+  key: string;
+  name: string;
+  description: string;
+  /** Who may see the project's issues. Admins see every project regardless. */
+  memberIds: string[];
+  /** Next issue number. Each project counts from 1. */
+  counter: number;
+  createdAt: string;
+}
+
 export interface Issue {
   id: string;
+  projectId: string;
+  /** Project key and a per-project number, e.g. WEB-1. */
   key: string;
   title: string;
   description: string;
@@ -57,10 +72,10 @@ export interface Attachment {
 
 export interface Database {
   users: User[];
+  projects: Project[];
   issues: Issue[];
   comments: Comment[];
   attachments: Attachment[];
-  counters: { bug: number; task: number };
 }
 
 export type PublicUser = Omit<User, 'password'>;

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, request, upload } from '../lib/api';
 import { formatBytes } from '../lib/format';
+import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import { fetchUploadRules, rejectionReason, type UploadRules } from '../lib/uploads';
 import { FileDropZone } from '../components/FileDropZone';
@@ -16,6 +17,7 @@ import {
 } from '../lib/types';
 
 export function NewIssuePage() {
+  const { projectKey = '' } = useParams();
   const navigate = useNavigate();
   const { notify } = useToast();
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -40,13 +42,13 @@ export function NewIssuePage() {
   });
 
   useEffect(() => {
-    request<{ items: UserSummary[] }>('/users')
+    request<{ items: UserSummary[] }>(`/projects/${projectKey}/members`)
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
     fetchUploadRules()
       .then(setUploadRules)
       .catch(() => undefined);
-  }, []);
+  }, [projectKey]);
 
   const addFiles = (chosen: File[]) => {
     if (chosen.length === 0 || !uploadRules) return;
@@ -82,7 +84,7 @@ export function NewIssuePage() {
     setSubmitting(true);
     let issueKey: string | null = null;
     try {
-      const response = await request<{ issue: Issue }>('/issues', {
+      const response = await request<{ issue: Issue }>(`/projects/${projectKey}/issues`, {
         method: 'POST',
         body: {
           title: form.title.trim(),
@@ -132,7 +134,7 @@ export function NewIssuePage() {
       notify(`${issueKey} created.`);
     }
 
-    navigate(`/issues/${issueKey}`);
+    navigate(projectPath(projectKey, `/issues/${issueKey}`));
   };
 
   return (
@@ -141,7 +143,7 @@ export function NewIssuePage() {
         <div>
           <h1>New issue</h1>
           <p className="muted">
-            <Link to="/issues" data-testid="back-to-issues">
+            <Link to={projectPath(projectKey, "/issues")} data-testid="back-to-issues">
               ← Back to issues
             </Link>
           </p>
@@ -314,7 +316,7 @@ export function NewIssuePage() {
         </div>
 
         <div className="form__actions">
-          <Link to="/issues" className="button button--ghost" data-testid="issue-cancel">
+          <Link to={projectPath(projectKey, "/issues")} className="button button--ghost" data-testid="issue-cancel">
             Cancel
           </Link>
           <button type="submit" className="button button--primary" data-testid="issue-submit" disabled={submitting}>

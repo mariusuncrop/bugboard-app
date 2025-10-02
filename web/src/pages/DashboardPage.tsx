@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
+import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import { PRIORITIES, PRIORITY_LABELS, STATUSES, STATUS_LABELS, type Stats } from '../lib/types';
 import { Spinner } from '../components/Spinner';
 
 export function DashboardPage() {
+  const { projectKey = '' } = useParams();
   const { notify } = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    request<Stats>('/stats')
+    request<Stats>(`/projects/${projectKey}/stats`)
       .then(setStats)
       .catch(() => notify('Could not load the dashboard.', 'error'));
-  }, [notify]);
+  }, [notify, projectKey]);
 
   return (
     <section className="page" data-testid="dashboard-page">
@@ -103,7 +105,7 @@ export function DashboardPage() {
               ))}
             </ul>
             <p>
-              <Link to="/issues?status=backlog" data-testid="dashboard-backlog-link">
+              <Link to={projectPath(projectKey, "/issues?status=backlog")} data-testid="dashboard-backlog-link">
                 Review the backlog →
               </Link>
             </p>

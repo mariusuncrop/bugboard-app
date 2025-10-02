@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../lib/auth.js';
+import { findVisibleIssue } from '../lib/projects.js';
 import { ApiError, asyncHandler, parse } from '../lib/http.js';
 import { commentDto } from '../lib/serialize.js';
 import { store } from '../store.js';
-import type { Comment } from '../types.js';
+import type { Comment, PublicUser } from '../types.js';
 
 const createSchema = z.object({
   body: z
@@ -14,14 +15,8 @@ const createSchema = z.object({
     .max(2000, 'Comments are limited to 2000 characters.'),
 });
 
-const resolveIssueId = (idOrKey: string): string => {
-  const needle = idOrKey.toLowerCase();
-  const issue = store.data.issues.find(
-    (candidate) => candidate.id.toLowerCase() === needle || candidate.key.toLowerCase() === needle,
-  );
-  if (!issue) throw ApiError.notFound(`No issue matches "${idOrKey}".`);
-  return issue.id;
-};
+/** Resolves the issue and refuses it outright if the caller cannot see its project. */
+const resolveIssueId = (user: PublicUser, idOrKey: string): string => findVisibleIssue(user, idOrKey).id;
 
 export const commentsRouter = Router();
 
@@ -29,7 +24,7 @@ commentsRouter.get(
   '/issues/:idOrKey/comments',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const issueId = resolveIssueId(req.params.idOrKey!);
+    const issueId = resolveIssueId(req.user!, req.params.idOrKey!);
     res.json({
       items: store.data.comments
         .filter((comment) => comment.issueId === issueId)
@@ -43,7 +38,7 @@ commentsRouter.post(
   '/issues/:idOrKey/comments',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const issueId = resolveIssueId(req.params.idOrKey!);
+    const issueId = resolveIssueId(req.user!, req.params.idOrKey!);
     const body = parse(createSchema, req.body);
 
     const comment = store.mutate((data) => {

@@ -539,3 +539,34 @@ input[aria-invalid='true'] { border-color: var(--danger); }
 @media (prefers-reduced-motion: reduce) {
   .dropzone { transition: none; }
 }
+
+/* Projects ---------------------------------------------------------------- */
+.project-card { display: grid; gap: 0.5rem; align-content: start; }
+.project-card__top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+
+.project-card__key {
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.project-card h2 { margin: 0; font-size: 1.05rem; }
+.project-card h2 a { color: var(--text); text-decoration: none; }
+.project-card h2 a:hover { text-decoration: underline; }
+.project-card__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+.member { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.member .link--danger { margin-left: auto; }
+
+.checkbox { display: flex; align-items: center; gap: 0.45rem; padding: 0.15rem 0; font-size: 0.9rem; }
+.checkbox input { width: auto; }
+
+fieldset.field { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; }
+fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); padding: 0 0.3rem; }
+
+.project-switcher { display: flex; align-items: center; gap: 0.4rem; }
+.project-switcher select { min-width: 150px; }

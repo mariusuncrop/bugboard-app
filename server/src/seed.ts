@@ -1,4 +1,4 @@
-import type { Comment, Database, Issue, IssueType, Priority, Status, User } from './types.js';
+import type { Comment, Database, Issue, IssueType, Priority, Project, Status, User } from './types.js';
 
 /**
  * The seed is fully deterministic — fixed ids, fixed timestamps, fixed order.
@@ -47,7 +47,45 @@ export const SEED_USERS: User[] = [
   },
 ];
 
+interface SeedProject {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  memberIds: string[];
+}
+
+/**
+ * Membership is deliberately uneven: Marco and Priya cannot see Mobile App, and
+ * Jonas cannot see Platform API. Without a user who is missing from something,
+ * "you only see your projects" is not actually testable.
+ */
+const SEED_PROJECTS: SeedProject[] = [
+  {
+    id: 'prj_web',
+    key: 'WEB',
+    name: 'Web Storefront',
+    description: 'The customer-facing shop: browsing, checkout and account pages.',
+    memberIds: ['usr_admin', 'usr_dev', 'usr_qa', 'usr_pm'],
+  },
+  {
+    id: 'prj_api',
+    key: 'API',
+    name: 'Platform API',
+    description: 'The REST services behind the storefront and the mobile app.',
+    memberIds: ['usr_admin', 'usr_dev', 'usr_qa'],
+  },
+  {
+    id: 'prj_mob',
+    key: 'MOB',
+    name: 'Mobile App',
+    description: 'iOS and Android clients.',
+    memberIds: ['usr_admin', 'usr_pm'],
+  },
+];
+
 interface SeedIssue {
+  projectId: string;
   title: string;
   type: IssueType;
   status: Status;
@@ -60,6 +98,7 @@ interface SeedIssue {
 
 const SEED_ISSUES: SeedIssue[] = [
   {
+    projectId: 'prj_web',
     title: 'Checkout total ignores the applied discount code',
     type: 'bug',
     status: 'in_progress',
@@ -71,6 +110,7 @@ const SEED_ISSUES: SeedIssue[] = [
       'Applying a valid discount code updates the line items but the order total still shows the undiscounted amount. Reproduced on staging with code SPRING20.',
   },
   {
+    projectId: 'prj_api',
     title: 'Session expires after 5 minutes instead of 8 hours',
     type: 'bug',
     status: 'in_progress',
@@ -81,6 +121,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Token TTL looks like it is being read as minutes somewhere in the session refresh path.',
   },
   {
+    projectId: 'prj_web',
     title: 'Board columns lose scroll position after drag and drop',
     type: 'bug',
     status: 'todo',
@@ -91,6 +132,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Dropping a card at the bottom of a long column scrolls the column back to the top.',
   },
   {
+    projectId: 'prj_api',
     title: 'Issue search returns no results for partial keys',
     type: 'bug',
     status: 'todo',
@@ -101,6 +143,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Searching for "BUG-1" should match BUG-1, BUG-12 and BUG-13. Currently only exact keys match.',
   },
   {
+    projectId: 'prj_api',
     title: 'Attachment upload fails silently over 2 MB',
     type: 'bug',
     status: 'backlog',
@@ -111,6 +154,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'The request is rejected by the server but the UI shows no error toast.',
   },
   {
+    projectId: 'prj_web',
     title: 'Priority filter resets when navigating back from an issue',
     type: 'bug',
     status: 'backlog',
@@ -121,6 +165,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Filters should be held in the query string so the back button restores them.',
   },
   {
+    projectId: 'prj_api',
     title: 'Dashboard stats endpoint times out under load',
     type: 'bug',
     status: 'in_review',
@@ -131,6 +176,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'p95 is above 3s once the project has more than 5k issues.',
   },
   {
+    projectId: 'prj_web',
     title: 'Colour contrast on the status badges fails WCAG AA',
     type: 'bug',
     status: 'todo',
@@ -141,6 +187,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'The "done" badge measures 3.1:1 against the card background.',
   },
   {
+    projectId: 'prj_mob',
     title: 'Comment box loses focus while typing on mobile Safari',
     type: 'bug',
     status: 'backlog',
@@ -151,6 +198,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Only reproducible on iOS when the on-screen keyboard opens.',
   },
   {
+    projectId: 'prj_api',
     title: 'Deleting an issue leaves its comments behind',
     type: 'bug',
     status: 'done',
@@ -161,6 +209,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Orphaned comment rows accumulate after every delete.',
   },
   {
+    projectId: 'prj_web',
     title: 'Empty board column shows a stray comma',
     type: 'bug',
     status: 'done',
@@ -171,6 +220,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Rendering artefact from joining an empty labels array.',
   },
   {
+    projectId: 'prj_web',
     title: 'Login form submits twice on a double click',
     type: 'bug',
     status: 'done',
@@ -181,6 +231,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'The submit button needs to be disabled while the request is in flight.',
   },
   {
+    projectId: 'prj_web',
     title: 'Add keyboard shortcuts for moving a card between columns',
     type: 'task',
     status: 'backlog',
@@ -191,6 +242,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Drag and drop is currently the only way to change status from the board.',
   },
   {
+    projectId: 'prj_api',
     title: 'Expose an OpenAPI document for the REST API',
     type: 'task',
     status: 'done',
@@ -201,6 +253,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Served at /api/openapi.yaml so client generators and contract tests can consume it.',
   },
   {
+    projectId: 'prj_web',
     title: 'Add a bulk status update to the issue list',
     type: 'task',
     status: 'backlog',
@@ -211,6 +264,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Select several rows, then move them all to one status.',
   },
   {
+    projectId: 'prj_api',
     title: 'Paginate the issue list server side',
     type: 'task',
     status: 'done',
@@ -221,6 +275,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'GET /api/issues now takes page and pageSize and returns a total count.',
   },
   {
+    projectId: 'prj_api',
     title: 'Seed the demo database from a fixed fixture',
     type: 'task',
     status: 'done',
@@ -231,6 +286,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Deterministic seed data so visual snapshots stay stable.',
   },
   {
+    projectId: 'prj_web',
     title: 'Add a dark theme toggle to the header',
     type: 'task',
     status: 'in_review',
@@ -241,6 +297,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Preference is stored in localStorage and restored on load.',
   },
   {
+    projectId: 'prj_mob',
     title: 'Write a runbook for restoring the demo environment',
     type: 'task',
     status: 'todo',
@@ -251,6 +308,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Cover the reset endpoint, the seed script and the docker compose workflow.',
   },
   {
+    projectId: 'prj_api',
     title: 'Support filtering issues by label',
     type: 'task',
     status: 'todo',
@@ -261,6 +319,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Multiple labels should combine as OR.',
   },
   {
+    projectId: 'prj_api',
     title: 'Restrict issue deletion to admins',
     type: 'task',
     status: 'done',
@@ -271,6 +330,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Members receive 403 with a FORBIDDEN error code.',
   },
   {
+    projectId: 'prj_web',
     title: 'Add an activity feed to the issue detail page',
     type: 'task',
     status: 'backlog',
@@ -281,6 +341,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Show status changes and assignments alongside comments.',
   },
   {
+    projectId: 'prj_api',
     title: 'Instrument the API with request timing logs',
     type: 'task',
     status: 'in_progress',
@@ -291,6 +352,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Log method, path, status and duration for every request.',
   },
   {
+    projectId: 'prj_web',
     title: 'Add a confirmation dialog before deleting an issue',
     type: 'task',
     status: 'done',
@@ -301,6 +363,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Destructive actions should never be one click away.',
   },
   {
+    projectId: 'prj_mob',
     title: 'Make the board usable at 375px wide',
     type: 'task',
     status: 'in_review',
@@ -311,6 +374,7 @@ const SEED_ISSUES: SeedIssue[] = [
     description: 'Columns scroll horizontally instead of squashing.',
   },
   {
+    projectId: 'prj_mob',
     title: 'Publish the Playwright HTML report to GitHub Pages',
     type: 'task',
     status: 'todo',
@@ -337,14 +401,23 @@ const SEED_COMMENTS: SeedComment[] = [
 ];
 
 export function buildSeedDatabase(): Database {
-  const counters = { bug: 0, task: 0 };
+  const projects: Project[] = SEED_PROJECTS.map((seed) => ({
+    ...seed,
+    memberIds: [...seed.memberIds],
+    counter: 0,
+    createdAt: at(0),
+  }));
+
+  const byId = new Map(projects.map((project) => [project.id, project]));
 
   const issues: Issue[] = SEED_ISSUES.map((seed, index) => {
-    counters[seed.type] += 1;
+    const project = byId.get(seed.projectId)!;
+    project.counter += 1;
     const createdAt = at(index * 5);
     return {
       id: `iss_${String(index + 1).padStart(3, '0')}`,
-      key: `${seed.type === 'bug' ? 'BUG' : 'TASK'}-${counters[seed.type]}`,
+      projectId: project.id,
+      key: `${project.key}-${project.counter}`,
       title: seed.title,
       description: seed.description,
       type: seed.type,
@@ -369,9 +442,9 @@ export function buildSeedDatabase(): Database {
 
   return {
     users: SEED_USERS.map((user) => ({ ...user })),
+    projects,
     issues,
     comments,
     attachments: [],
-    counters,
   };
 }

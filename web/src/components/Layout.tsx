@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { projectPath, useCurrentProject, useProjects } from '../lib/projects';
 import { applyTheme, readTheme, type Theme } from '../lib/theme';
 import { Avatar } from './Avatar';
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { projects } = useProjects();
+  const project = useCurrentProject();
   const navigate = useNavigate();
   const [theme, setTheme] = useState<Theme>(() => readTheme());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -23,24 +26,56 @@ export function Layout() {
     <div className="app">
       <header className="header" data-testid="app-header">
         <div className="header__inner">
-          <NavLink to="/board" className="brand" data-testid="brand">
+          <NavLink to="/projects" className="brand" data-testid="brand">
             <span className="brand__mark" aria-hidden="true">
               BB
             </span>
             BugBoard
           </NavLink>
 
-          <nav className="nav" aria-label="Main">
-            <NavLink to="/board" data-testid="nav-board">
-              Board
-            </NavLink>
-            <NavLink to="/issues" data-testid="nav-issues">
-              Issues
-            </NavLink>
-            <NavLink to="/dashboard" data-testid="nav-dashboard">
-              Dashboard
-            </NavLink>
-          </nav>
+          {/* Only a project has a board, an issue list or a dashboard, so the
+              navigation appears once one is open. */}
+          {project ? (
+            <>
+              <label className="project-switcher" data-testid="project-switcher">
+                <span className="sr-only">Current project</span>
+                <select
+                  data-testid="project-select"
+                  value={project.key}
+                  onChange={(event) => navigate(projectPath(event.target.value, '/board'))}
+                >
+                  {projects.map((candidate) => (
+                    <option key={candidate.id} value={candidate.key}>
+                      {candidate.key} · {candidate.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <nav className="nav" aria-label="Main">
+                <NavLink to={projectPath(project.key, '/board')} data-testid="nav-board">
+                  Board
+                </NavLink>
+                <NavLink to={projectPath(project.key, '/issues')} end data-testid="nav-issues">
+                  Issues
+                </NavLink>
+                <NavLink to={projectPath(project.key, '/dashboard')} data-testid="nav-dashboard">
+                  Dashboard
+                </NavLink>
+                {user?.role === 'admin' ? (
+                  <NavLink to={projectPath(project.key, '/settings')} data-testid="nav-settings">
+                    Members
+                  </NavLink>
+                ) : null}
+              </nav>
+            </>
+          ) : (
+            <nav className="nav" aria-label="Main">
+              <NavLink to="/projects" end data-testid="nav-projects">
+                Projects
+              </NavLink>
+            </nav>
+          )}
 
           <div className="header__actions">
             <button
@@ -53,9 +88,15 @@ export function Layout() {
               {theme === 'dark' ? '☀' : '☾'}
             </button>
 
-            <NavLink to="/issues/new" className="button button--primary" data-testid="new-issue-button">
-              New issue
-            </NavLink>
+            {project ? (
+              <NavLink
+                to={projectPath(project.key, '/issues/new')}
+                className="button button--primary"
+                data-testid="new-issue-button"
+              >
+                New issue
+              </NavLink>
+            ) : null}
 
             <div className="user-menu">
               <button

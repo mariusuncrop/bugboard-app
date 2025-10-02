@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { ApiError, asyncHandler, parse } from '../lib/http.js';
+import { findVisibleIssue, projectOf, requireProjectAccess } from '../lib/projects.js';
 import { issueDto } from '../lib/serialize.js';
 import { store } from '../store.js';
-import { ISSUE_TYPES, PRIORITIES, STATUSES, type Issue, type Status } from '../types.js';
+import { ISSUE_TYPES, PRIORITIES, STATUSES, type Issue, type Project, type Status } from '../types.js';
 
 const PRIORITY_RANK: Record<string, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 const MAX_PAGE_SIZE = 100;
@@ -24,9 +25,7 @@ const createSchema = z.object({
   priority: z
     .enum(PRIORITIES, { errorMap: () => ({ message: 'Priority must be low, medium, high or critical.' }) })
     .default('medium'),
-  status: z
-    .enum(STATUSES, { errorMap: () => ({ message: 'Unknown status.' }) })
-    .default('backlog'),
+  status: z.enum(STATUSES, { errorMap: () => ({ message: 'Unknown status.' }) }).default('backlog'),
   assigneeId: z.string().nullable().default(null),
   labels: labelsSchema.default([]),
 });
@@ -54,39 +53,39 @@ const listQuerySchema = z.object({
 const csv = (value: string | undefined): string[] =>
   value ? value.split(',').map((part) => part.trim()).filter(Boolean) : [];
 
-function findIssue(idOrKey: string): Issue {
-  const needle = idOrKey.toLowerCase();
-  const issue = store.data.issues.find(
-    (candidate) => candidate.id.toLowerCase() === needle || candidate.key.toLowerCase() === needle,
-  );
-  if (!issue) throw ApiError.notFound(`No issue matches "${idOrKey}".`);
-  return issue;
-}
-
-function assertAssigneeExists(assigneeId: string | null | undefined): void {
+/** An assignee has to be able to see the project they are being assigned work in. */
+function assertAssignable(project: Project, assigneeId: string | null | undefined): void {
   if (!assigneeId) return;
-  if (!store.data.users.some((user) => user.id === assigneeId)) {
+  const user = store.data.users.find((candidate) => candidate.id === assigneeId);
+  if (!user) {
     throw ApiError.badRequest('The request body is invalid.', [
       { path: 'assigneeId', message: 'No user matches that id.' },
     ]);
   }
+  if (user.role !== 'admin' && !project.memberIds.includes(user.id)) {
+    throw ApiError.badRequest('The request body is invalid.', [
+      { path: 'assigneeId', message: `${user.name} is not a member of ${project.key}.` },
+    ]);
+  }
 }
 
-/** Rewrites `position` for one column so it is always a dense 0..n-1 sequence. */
-function compact(status: Status): void {
+/** Rewrites `position` for one column of one project as a dense 0..n-1 sequence. */
+function compact(projectId: string, status: Status): void {
   store.data.issues
-    .filter((issue) => issue.status === status)
+    .filter((issue) => issue.projectId === projectId && issue.status === status)
     .sort((a, b) => a.position - b.position)
     .forEach((issue, index) => {
       issue.position = index;
     });
 }
 
-export const issuesRouter = Router();
+// --- collection routes, scoped to one project -------------------------------
 
-issuesRouter.use(requireAuth);
+export const projectIssuesRouter = Router({ mergeParams: true });
 
-issuesRouter.get(
+projectIssuesRouter.use(requireAuth, requireProjectAccess);
+
+projectIssuesRouter.get(
   '/',
   asyncHandler(async (req, res) => {
     const query = parse(listQuerySchema, req.query);
@@ -97,6 +96,7 @@ issuesRouter.get(
     const term = query.q?.toLowerCase();
 
     const filtered = store.data.issues.filter((issue) => {
+      if (issue.projectId !== req.project!.id) return false;
       if (statuses.length && !statuses.includes(issue.status)) return false;
       if (priorities.length && !priorities.includes(issue.priority)) return false;
       if (types.length && !types.includes(issue.type)) return false;
@@ -132,25 +132,20 @@ issuesRouter.get(
   }),
 );
 
-issuesRouter.get(
-  '/:idOrKey',
-  asyncHandler(async (req, res) => {
-    res.json({ issue: issueDto(findIssue(req.params.idOrKey!)) });
-  }),
-);
-
-issuesRouter.post(
+projectIssuesRouter.post(
   '/',
   asyncHandler(async (req, res) => {
     const body = parse(createSchema, req.body);
-    assertAssigneeExists(body.assigneeId);
+    const project = req.project!;
+    assertAssignable(project, body.assigneeId);
 
     const issue = store.mutate((data) => {
-      data.counters[body.type] += 1;
+      project.counter += 1;
       const now = new Date().toISOString();
       const created: Issue = {
         id: store.id('iss'),
-        key: `${body.type === 'bug' ? 'BUG' : 'TASK'}-${data.counters[body.type]}`,
+        projectId: project.id,
+        key: `${project.key}-${project.counter}`,
         title: body.title,
         description: body.description,
         type: body.type,
@@ -159,7 +154,9 @@ issuesRouter.post(
         assigneeId: body.assigneeId,
         reporterId: req.user!.id,
         labels: body.labels,
-        position: data.issues.filter((candidate) => candidate.status === body.status).length,
+        position: data.issues.filter(
+          (candidate) => candidate.projectId === project.id && candidate.status === body.status,
+        ).length,
         createdAt: now,
         updatedAt: now,
       };
@@ -171,20 +168,33 @@ issuesRouter.post(
   }),
 );
 
+// --- item routes, addressed by key, project implied -------------------------
+
+export const issuesRouter = Router();
+
+issuesRouter.use(requireAuth);
+
+issuesRouter.get(
+  '/:idOrKey',
+  asyncHandler(async (req, res) => {
+    res.json({ issue: issueDto(findVisibleIssue(req.user!, req.params.idOrKey!)) });
+  }),
+);
+
 issuesRouter.patch(
   '/:idOrKey',
   asyncHandler(async (req, res) => {
-    const issue = findIssue(req.params.idOrKey!);
+    const issue = findVisibleIssue(req.user!, req.params.idOrKey!);
     const body = parse(updateSchema, req.body);
-    assertAssigneeExists(body.assigneeId);
+    assertAssignable(projectOf(issue), body.assigneeId);
 
     const previousStatus = issue.status;
     store.mutate(() => {
       Object.assign(issue, body, { updatedAt: new Date().toISOString() });
       if (body.status && body.status !== previousStatus) {
         issue.position = Number.MAX_SAFE_INTEGER;
-        compact(body.status);
-        compact(previousStatus);
+        compact(issue.projectId, body.status);
+        compact(issue.projectId, previousStatus);
       }
     });
 
@@ -195,13 +205,18 @@ issuesRouter.patch(
 issuesRouter.post(
   '/:idOrKey/move',
   asyncHandler(async (req, res) => {
-    const issue = findIssue(req.params.idOrKey!);
+    const issue = findVisibleIssue(req.user!, req.params.idOrKey!);
     const body = parse(moveSchema, req.body);
     const previousStatus = issue.status;
 
     store.mutate((data) => {
       const column = data.issues
-        .filter((candidate) => candidate.status === body.status && candidate.id !== issue.id)
+        .filter(
+          (candidate) =>
+            candidate.projectId === issue.projectId &&
+            candidate.status === body.status &&
+            candidate.id !== issue.id,
+        )
         .sort((a, b) => a.position - b.position);
 
       column.splice(Math.min(body.position, column.length), 0, issue);
@@ -210,7 +225,7 @@ issuesRouter.post(
       column.forEach((candidate, index) => {
         candidate.position = index;
       });
-      if (previousStatus !== body.status) compact(previousStatus);
+      if (previousStatus !== body.status) compact(issue.projectId, previousStatus);
     });
 
     res.json({ issue: issueDto(issue) });
@@ -221,13 +236,13 @@ issuesRouter.delete(
   '/:idOrKey',
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const issue = findIssue(req.params.idOrKey!);
+    const issue = findVisibleIssue(req.user!, req.params.idOrKey!);
 
     store.mutate((data) => {
       data.issues = data.issues.filter((candidate) => candidate.id !== issue.id);
       data.comments = data.comments.filter((comment) => comment.issueId !== issue.id);
       data.attachments = data.attachments.filter((attachment) => attachment.issueId !== issue.id);
-      compact(issue.status);
+      compact(issue.projectId, issue.status);
     });
 
     res.status(204).end();

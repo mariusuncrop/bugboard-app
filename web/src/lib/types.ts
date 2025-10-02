@@ -18,8 +18,27 @@ export interface UserSummary {
   avatarColor: string;
 }
 
+export interface ProjectSummary {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  issueCount: number;
+  memberCount: number;
+  createdAt: string;
+}
+
+export interface ProjectMember extends UserSummary {
+  role: Role;
+}
+
+export interface Project extends ProjectSummary {
+  members: ProjectMember[];
+}
+
 export interface Issue {
   id: string;
+  projectId: string;
   key: string;
   title: string;
   description: string;
@@ -36,6 +55,7 @@ export interface Issue {
   reporter: UserSummary | null;
   commentCount: number;
   attachmentCount: number;
+  project: { id: string; key: string; name: string } | null;
 }
 
 export interface Comment {

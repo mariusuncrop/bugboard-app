@@ -47,6 +47,29 @@ docker compose up --build
 
 That serves the built frontend and the API together on <http://localhost:4000>.
 
+## Projects
+
+Issues belong to a project, and a project decides who can see them.
+
+| Project | Members | Issues |
+| --- | --- | --- |
+| `WEB` Web Storefront | everyone | 11 |
+| `API` Platform API | Ada, Marco, Priya | 11 |
+| `MOB` Mobile App | Ada, Jonas | 4 |
+
+The rules:
+
+- **Only an admin can create a project**, or add and remove its members.
+- **Everyone else sees only the projects they belong to** — in the switcher, in the project list, and through the API.
+- **Admins see every project** without being added to it.
+- A project a user cannot see returns `404`, not `403`. Answering "forbidden" would confirm it exists.
+- An issue can only be assigned to a member of its own project. Removing someone from a project unassigns the work
+  they held there.
+- Issue keys are prefixed per project and numbered from one inside it: `WEB-1`, `API-1`, `MOB-1`.
+
+The membership is deliberately uneven — Marco and Priya are not on Mobile App, Jonas is not on Platform API. Without
+a user who is missing from something, "you only see your projects" is not actually testable.
+
 ## Demo accounts
 
 | Email | Role | Notes |
@@ -63,6 +86,7 @@ click one.
 
 | Feature | Why it is here |
 | --- | --- |
+| Multiple projects, with membership | Authorisation that depends on data, not just on a role — the most interesting thing here to test |
 | Token auth with a protected app shell | Session reuse, redirect-after-login, expired-token handling |
 | Kanban board with drag and drop | Pointer gestures — plus a `<select>` on each card as the accessible equivalent |
 | Issue list with search, filters, sorting and pagination | Filter state lives in the URL, so the back button and shared links both work |
@@ -94,10 +118,10 @@ stable. The endpoint is guarded by `ENABLE_TEST_ENDPOINTS` and must stay off in 
 | Pattern | Example |
 | --- | --- |
 | `<page>-<element>` | `login-email`, `issues-search`, `comment-submit` |
-| `<thing>-<identifier>` | `issue-card-BUG-1`, `issue-row-TASK-3`, `column-todo` |
+| `<thing>-<identifier>` | `issue-card-WEB-1`, `issue-row-WEB-3`, `column-todo`, `project-card-API` |
 | `error-<field>` | `error-title`, `error-password` |
 
-Issue keys (`BUG-1`, `TASK-4`) are stable across resets, so tests can address a specific card without first
+Issue keys (`WEB-1`, `API-4`) are stable across resets, so tests can address a specific card without first
 scraping the page for an id.
 
 **3. A documented API.** `GET /api/openapi.yaml` serves the full contract, so API tests and UI setup code can talk
@@ -111,11 +135,18 @@ Base URL `http://localhost:4000`. All endpoints need `Authorization: Bearer <tok
 ```
 POST   /api/auth/login              email + password → token
 GET    /api/auth/me                 the current user
-GET    /api/users                   assignable users
+GET    /api/users                   all users, for admins building a project
 
-GET    /api/issues                  q, status, priority, type, assigneeId, label, sort, order, page, pageSize
-POST   /api/issues                  create
-GET    /api/issues/:idOrKey         fetch by id or key (BUG-1)
+GET    /api/projects                projects the caller can see
+POST   /api/projects                create one — admin only
+GET    /api/projects/:key           one project, with its members
+GET    /api/projects/:key/members
+POST   /api/projects/:key/members   { userId } — admin only
+DELETE /api/projects/:key/members/:userId   admin only; unassigns their issues
+
+GET    /api/projects/:key/issues    q, status, priority, type, assigneeId, label, sort, order, page, pageSize
+POST   /api/projects/:key/issues    create
+GET    /api/issues/:idOrKey         fetch by id or key (WEB-1); the project is implied
 PATCH  /api/issues/:idOrKey         partial update
 DELETE /api/issues/:idOrKey         admin only
 POST   /api/issues/:idOrKey/move    { status, position } — the board drag
@@ -130,8 +161,8 @@ GET    /api/attachments/:id
 DELETE /api/attachments/:id
 
 GET    /api/config                  upload limits, so a client can reject a file before sending it
-GET    /api/board                   issues grouped into columns
-GET    /api/stats                   dashboard aggregates (deliberately slow)
+GET    /api/projects/:key/board     issues grouped into columns
+GET    /api/projects/:key/stats     dashboard aggregates (deliberately slow)
 POST   /api/test/reset              restore the seed fixture
 GET    /api/health
 ```
