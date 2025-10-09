@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { request } from '../lib/api';
+import { ApiError, request } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
@@ -12,11 +12,13 @@ import {
   STATUS_LABELS,
   type Issue,
   type Page,
+  type Priority,
   type UserSummary,
 } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { PriorityBadge, StatusBadge, TypeBadge } from '../components/Badge';
 import { Pagination } from '../components/Pagination';
+import { InlineSelect } from '../components/InlineSelect';
 import { Spinner } from '../components/Spinner';
 
 const PAGE_SIZE = 10;
@@ -81,6 +83,26 @@ export function IssuesPage() {
       cancelled = true;
     };
   }, [query, notify, projectKey]);
+
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  /** Patches one field of one issue and refreshes just that row. */
+  const patchIssue = async (issue: Issue, body: Record<string, unknown>, message: string) => {
+    setSavingKey(issue.key);
+    try {
+      const response = await request<{ issue: Issue }>(`/issues/${issue.key}`, { method: 'PATCH', body });
+      setPage((current) =>
+        current
+          ? { ...current, items: current.items.map((item) => (item.id === issue.id ? response.issue : item)) }
+          : current,
+      );
+      notify(message);
+    } catch (error) {
+      notify(error instanceof ApiError ? error.detail : 'Could not update the issue.', 'error');
+    } finally {
+      setSavingKey(null);
+    }
+  };
 
   const toggleSort = (field: string) => {
     const order = query.sort === field && query.order === 'desc' ? 'asc' : 'desc';
@@ -237,13 +259,43 @@ export function IssuesPage() {
                     <StatusBadge status={issue.status} />
                   </td>
                   <td>
-                    <PriorityBadge priority={issue.priority} />
+                    <InlineSelect
+                      label={`Priority of ${issue.key}`}
+                      testId={`priority-${issue.key}`}
+                      value={issue.priority}
+                      busy={savingKey === issue.key}
+                      adornment={<PriorityBadge priority={issue.priority} />}
+                      options={PRIORITIES.map((value) => ({ value, label: PRIORITY_LABELS[value] }))}
+                      onChange={(value) =>
+                        void patchIssue(
+                          issue,
+                          { priority: value },
+                          `${issue.key} set to ${PRIORITY_LABELS[value as Priority]} priority.`,
+                        )
+                      }
+                    />
                   </td>
-                  <td>
-                    <span className="assignee" data-testid="row-assignee">
-                      <Avatar user={issue.assignee} />
-                      <span>{issue.assignee?.name ?? 'Unassigned'}</span>
-                    </span>
+                  <td data-testid="row-assignee">
+                    <InlineSelect
+                      label={`Assign ${issue.key}`}
+                      testId={`assign-${issue.key}`}
+                      value={issue.assigneeId ?? ''}
+                      busy={savingKey === issue.key}
+                      adornment={<Avatar user={issue.assignee} />}
+                      options={[
+                        { value: '', label: 'Unassigned' },
+                        ...users.map((member) => ({ value: member.id, label: member.name })),
+                      ]}
+                      onChange={(value) =>
+                        void patchIssue(
+                          issue,
+                          { assigneeId: value || null },
+                          value
+                            ? `${issue.key} assigned to ${users.find((m) => m.id === value)?.name}.`
+                            : `${issue.key} unassigned.`,
+                        )
+                      }
+                    />
                   </td>
                   <td data-testid="row-created">{formatDate(issue.createdAt)}</td>
                 </tr>

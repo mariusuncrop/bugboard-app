@@ -3,9 +3,19 @@ import { Link, useParams } from 'react-router-dom';
 import { ApiError, request } from '../lib/api';
 import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
-import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS, type BoardColumn, type Issue, type Status, type UserSummary } from '../lib/types';
+import {
+  PRIORITIES,
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+  type BoardColumn,
+  type Issue,
+  type Priority,
+  type Status,
+  type UserSummary,
+} from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { Label, PriorityBadge, TypeBadge } from '../components/Badge';
+import { InlineSelect } from '../components/InlineSelect';
 import { Spinner } from '../components/Spinner';
 
 export function BoardPage() {
@@ -37,6 +47,34 @@ export function BoardPage() {
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
   }, [projectKey]);
+
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  /** Patches one field of a card and refreshes the board. */
+  const patchIssue = async (issue: Issue, body: Record<string, unknown>, message: string) => {
+    setSavingKey(issue.key);
+    try {
+      await request(`/issues/${issue.key}`, { method: 'PATCH', body });
+      await loadBoard();
+      notify(message);
+    } catch (error) {
+      notify(error instanceof ApiError ? error.detail : 'Could not update the issue.', 'error');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const assign = (issue: Issue, assigneeId: string) => {
+    const name = users.find((candidate) => candidate.id === assigneeId)?.name;
+    return patchIssue(
+      issue,
+      { assigneeId: assigneeId || null },
+      name ? `${issue.key} assigned to ${name}.` : `${issue.key} unassigned.`,
+    );
+  };
+
+  const changePriority = (issue: Issue, priority: string) =>
+    patchIssue(issue, { priority }, `${issue.key} set to ${PRIORITY_LABELS[priority as Priority]} priority.`);
 
   const move = async (issue: Issue, status: Status, position: number) => {
     if (issue.status === status && issue.position === position) return;
@@ -173,33 +211,47 @@ export function BoardPage() {
                     ) : null}
 
                     <footer className="issue-card__footer">
-                      <PriorityBadge priority={issue.priority} />
+                      <InlineSelect
+                        label={`Priority of ${issue.key}`}
+                        testId={`priority-${issue.key}`}
+                        value={issue.priority}
+                        busy={savingKey === issue.key}
+                        adornment={<PriorityBadge priority={issue.priority} />}
+                        options={PRIORITIES.map((value) => ({ value, label: PRIORITY_LABELS[value] }))}
+                        onChange={(value) => void changePriority(issue, value)}
+                      />
                       <div className="issue-card__meta">
                         {issue.commentCount > 0 ? (
                           <span data-testid="issue-card-comments" title={`${issue.commentCount} comments`}>
                             💬 {issue.commentCount}
                           </span>
                         ) : null}
-                        <Avatar user={issue.assignee} />
                       </div>
                     </footer>
 
-                    {/* Keyboard-accessible equivalent of the drag gesture. */}
-                    <label className="issue-card__move">
-                      <span className="sr-only">Move {issue.key} to another column</span>
-                      <select
-                        data-testid={`move-${issue.key}`}
-                        aria-label={`Move ${issue.key} to another column`}
+                    <div className="issue-card__controls">
+                      {/* Keyboard-accessible equivalent of the drag gesture. */}
+                      <InlineSelect
+                        label={`Move ${issue.key} to another column`}
+                        testId={`move-${issue.key}`}
                         value={issue.status}
-                        onChange={(event) => void move(issue, event.target.value as Status, 0)}
-                      >
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+                        onChange={(value) => void move(issue, value as Status, 0)}
+                      />
+
+                      <InlineSelect
+                        label={`Assign ${issue.key}`}
+                        testId={`assign-${issue.key}`}
+                        value={issue.assigneeId ?? ''}
+                        busy={savingKey === issue.key}
+                        adornment={<Avatar user={issue.assignee} />}
+                        options={[
+                          { value: '', label: 'Unassigned' },
+                          ...users.map((member) => ({ value: member.id, label: member.name })),
+                        ]}
+                        onChange={(value) => void assign(issue, value)}
+                      />
+                    </div>
                   </article>
                 ))}
               </div>
