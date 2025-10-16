@@ -17,6 +17,7 @@ import {
 } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { PriorityBadge, StatusBadge, TypeBadge } from '../components/Badge';
+import { DueBadge } from '../components/DueBadge';
 import { Pagination } from '../components/Pagination';
 import { InlineSelect } from '../components/InlineSelect';
 import { Spinner } from '../components/Spinner';
@@ -230,6 +231,11 @@ export function IssuesPage() {
                 </th>
                 <th scope="col">Assignee</th>
                 <th scope="col">
+                  <button type="button" className="link" data-testid="sort-dueOn" onClick={() => toggleSort('dueOn')}>
+                    Due
+                  </button>
+                </th>
+                <th scope="col">
                   <button
                     type="button"
                     className="link"
@@ -296,6 +302,9 @@ export function IssuesPage() {
                         )
                       }
                     />
+                  </td>
+                  <td data-testid="row-due">
+                    <DueBadge dueOn={issue.dueOn} state={issue.dueState} daysUntil={issue.daysUntilDue} />
                   </td>
                   <td data-testid="row-created">{formatDate(issue.createdAt)}</td>
                 </tr>

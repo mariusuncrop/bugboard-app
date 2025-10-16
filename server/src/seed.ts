@@ -400,6 +400,13 @@ const SEED_COMMENTS: SeedComment[] = [
   { issueIndex: 6, authorId: 'usr_dev', body: 'Adding an index on status brings p95 down to 400ms.' },
 ];
 
+/** Days from today, or null for no deadline. Fixed order keeps the seed deterministic. */
+const DUE_OFFSETS: (string | null)[] = (() => {
+  const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  const iso = (days: number) => new Date(today + days * 86_400_000).toISOString().slice(0, 10);
+  return [iso(-6), null, iso(2), iso(21), iso(-1), null, iso(0), iso(9), null, iso(1), iso(45), null, iso(-3)];
+})();
+
 export function buildSeedDatabase(): Database {
   const projects: Project[] = SEED_PROJECTS.map((seed) => ({
     ...seed,
@@ -427,6 +434,9 @@ export function buildSeedDatabase(): Database {
       reporterId: seed.reporterId,
       labels: seed.labels,
       position: index,
+      // Relative to today, so the overdue and due-soon colours always have
+      // something to show whenever the fixture is restored.
+      dueOn: DUE_OFFSETS[index % DUE_OFFSETS.length]!,
       createdAt,
       updatedAt: at(index * 5 + 2),
     };

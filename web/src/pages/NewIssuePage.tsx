@@ -39,6 +39,7 @@ export function NewIssuePage() {
     status: 'backlog',
     assigneeId: '',
     labels: '',
+    dueOn: '',
   });
 
   useEffect(() => {
@@ -93,6 +94,7 @@ export function NewIssuePage() {
           priority: form.priority,
           status: form.status,
           assigneeId: form.assigneeId || null,
+          dueOn: form.dueOn || null,
           labels: form.labels
             .split(',')
             .map((label) => label.trim())
@@ -234,7 +236,7 @@ export function NewIssuePage() {
           </div>
         </div>
 
-        <div className="grid grid--2">
+        <div className="grid grid--3">
           <div className="field">
             <label htmlFor="assignee">Assignee</label>
             <select
@@ -250,6 +252,23 @@ export function NewIssuePage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="due-on">Due date</label>
+            <input
+              id="due-on"
+              type="date"
+              data-testid="issue-due-on"
+              value={form.dueOn}
+              onChange={(event) => set('dueOn', event.target.value)}
+            />
+            <p className="field__hint">Optional. Cards show how long is left, or how late they are.</p>
+            {errors.dueOn ? (
+              <p className="field__error" data-testid="error-dueOn">
+                {errors.dueOn}
+              </p>
+            ) : null}
           </div>
 
           <div className="field">

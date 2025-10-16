@@ -1,6 +1,7 @@
 export type Status = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
 export type IssueType = 'bug' | 'task';
+export type DueState = 'overdue' | 'today' | 'soon' | 'later' | 'none';
 export type Role = 'admin' | 'member';
 
 export interface User {
@@ -49,6 +50,9 @@ export interface Issue {
   reporterId: string;
   labels: string[];
   position: number;
+  dueOn: string | null;
+  dueState: DueState;
+  daysUntilDue: number | null;
   createdAt: string;
   updatedAt: string;
   assignee: UserSummary | null;

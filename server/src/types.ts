@@ -46,6 +46,8 @@ export interface Issue {
   labels: string[];
   /** Sort order inside a board column. Lower comes first. */
   position: number;
+  /** Calendar date (YYYY-MM-DD), or null when the issue has no deadline. */
+  dueOn: string | null;
   createdAt: string;
   updatedAt: string;
 }

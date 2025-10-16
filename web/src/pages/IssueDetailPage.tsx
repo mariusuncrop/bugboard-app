@@ -18,6 +18,7 @@ import {
 } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { Label, PriorityBadge, StatusBadge, TypeBadge } from '../components/Badge';
+import { DueBadge } from '../components/DueBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FileDropZone } from '../components/FileDropZone';
 import { Spinner } from '../components/Spinner';
@@ -390,6 +391,18 @@ export function IssueDetailPage() {
               <Avatar user={issue.assignee} />
               <span>{issue.assignee?.name ?? 'Unassigned'}</span>
             </span>
+          </div>
+
+          <div className="field">
+            <label htmlFor="due-on-input">Due date</label>
+            <input
+              id="due-on-input"
+              type="date"
+              data-testid="issue-due-on"
+              value={issue.dueOn ?? ''}
+              onChange={(event) => void patch({ dueOn: event.target.value || null }, 'Due date updated.')}
+            />
+            <DueBadge dueOn={issue.dueOn} state={issue.dueState} daysUntil={issue.daysUntilDue} />
           </div>
 
           <p className="muted" data-testid="issue-updated">

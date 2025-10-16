@@ -15,6 +15,7 @@ import {
 } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { Label, PriorityBadge, TypeBadge } from '../components/Badge';
+import { DueBadge } from '../components/DueBadge';
 import { InlineSelect } from '../components/InlineSelect';
 import { Spinner } from '../components/Spinner';
 
@@ -201,6 +202,12 @@ export function BoardPage() {
                     <Link to={projectPath(projectKey, `/issues/${issue.key}`)} className="issue-card__title" data-testid="issue-card-title">
                       {issue.title}
                     </Link>
+
+                    {issue.dueOn ? (
+                      <div className="issue-card__due">
+                        <DueBadge dueOn={issue.dueOn} state={issue.dueState} daysUntil={issue.daysUntilDue} />
+                      </div>
+                    ) : null}
 
                     {issue.labels.length ? (
                       <div className="chips">

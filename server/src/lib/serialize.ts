@@ -1,4 +1,5 @@
 import { store } from '../store.js';
+import { dueState, daysUntil } from './dates.js';
 import type { Attachment, Comment, Issue, Project, PublicUser, User } from '../types.js';
 
 export interface UserSummary {
@@ -38,6 +39,8 @@ export function issueDto(issue: Issue) {
   return {
     ...issue,
     project: project ? { id: project.id, key: project.key, name: project.name } : null,
+    dueState: dueState(issue.dueOn),
+    daysUntilDue: issue.dueOn ? daysUntil(issue.dueOn) : null,
     assignee: summarize(findUser(issue.assigneeId)),
     reporter: summarize(findUser(issue.reporterId)),
     commentCount: store.data.comments.filter((comment) => comment.issueId === issue.id).length,

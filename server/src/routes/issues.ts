@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { ApiError, asyncHandler, parse } from '../lib/http.js';
 import { findVisibleIssue, projectOf, requireProjectAccess } from '../lib/projects.js';
+import { dueState } from '../lib/dates.js';
 import { issueDto } from '../lib/serialize.js';
 import { store } from '../store.js';
 import { ISSUE_TYPES, PRIORITIES, STATUSES, type Issue, type Project, type Status } from '../types.js';
@@ -28,6 +29,12 @@ const createSchema = z.object({
   status: z.enum(STATUSES, { errorMap: () => ({ message: 'Unknown status.' }) }).default('backlog'),
   assigneeId: z.string().nullable().default(null),
   labels: labelsSchema.default([]),
+  dueOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a calendar date, as YYYY-MM-DD.')
+    .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), 'That is not a real date.')
+    .nullable()
+    .default(null),
 });
 
 const updateSchema = createSchema.partial();
@@ -44,7 +51,9 @@ const listQuerySchema = z.object({
   type: z.string().optional(),
   assigneeId: z.string().optional(),
   label: z.string().optional(),
-  sort: z.enum(['createdAt', 'updatedAt', 'priority', 'key', 'title']).default('createdAt'),
+  sort: z.enum(['createdAt', 'updatedAt', 'priority', 'key', 'title', 'dueOn']).default('createdAt'),
+  /** 'overdue' | 'soon' | 'none' — see dueState in lib/dates. */
+  due: z.string().optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(10),
@@ -93,6 +102,7 @@ projectIssuesRouter.get(
     const priorities = csv(query.priority);
     const types = csv(query.type);
     const labels = csv(query.label);
+    const dueStates = csv(query.due);
     const term = query.q?.toLowerCase();
 
     const filtered = store.data.issues.filter((issue) => {
@@ -105,6 +115,7 @@ projectIssuesRouter.get(
       if (query.assigneeId && query.assigneeId !== 'unassigned' && issue.assigneeId !== query.assigneeId) {
         return false;
       }
+      if (dueStates.length && !dueStates.includes(dueState(issue.dueOn))) return false;
       if (term && !`${issue.key} ${issue.title} ${issue.description}`.toLowerCase().includes(term)) {
         return false;
       }
@@ -113,6 +124,13 @@ projectIssuesRouter.get(
 
     const direction = query.order === 'asc' ? 1 : -1;
     filtered.sort((a, b) => {
+      // Issues with no deadline sort last whichever way the column is pointed.
+      if (query.sort === 'dueOn') {
+        if (a.dueOn === b.dueOn) return 0;
+        if (!a.dueOn) return 1;
+        if (!b.dueOn) return -1;
+        return a.dueOn.localeCompare(b.dueOn) * direction;
+      }
       if (query.sort === 'priority') return (PRIORITY_RANK[a.priority]! - PRIORITY_RANK[b.priority]!) * direction;
       if (query.sort === 'title') return a.title.localeCompare(b.title) * direction;
       if (query.sort === 'key') return a.key.localeCompare(b.key, undefined, { numeric: true }) * direction;
@@ -154,6 +172,7 @@ projectIssuesRouter.post(
         assigneeId: body.assigneeId,
         reporterId: req.user!.id,
         labels: body.labels,
+        dueOn: body.dueOn,
         position: data.issues.filter(
           (candidate) => candidate.projectId === project.id && candidate.status === body.status,
         ).length,

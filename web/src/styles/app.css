@@ -593,3 +593,12 @@ fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-
   padding-top: 0.4rem;
   border-top: 1px solid var(--border);
 }
+
+/* Deadlines --------------------------------------------------------------- */
+.badge--due { border: 1px solid transparent; }
+.badge--due-overdue { background: #b91c1c; color: #fff; }
+.badge--due-today { background: #b45309; color: #fff; }
+.badge--due-soon { background: #854d0e; color: #fff; }
+.badge--due-later { background: var(--surface-alt); color: var(--text-muted); border-color: var(--border); }
+
+.issue-card__due { display: flex; align-items: center; gap: 0.3rem; }
