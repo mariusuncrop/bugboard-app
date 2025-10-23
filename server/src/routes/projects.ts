@@ -87,6 +87,23 @@ projectsRouter.get(
 );
 
 projectsRouter.get(
+  '/:projectKey/labels',
+  requireProjectAccess,
+  asyncHandler(async (req, res) => {
+    const counts = new Map<string, number>();
+    for (const issue of store.data.issues.filter((candidate) => candidate.projectId === req.project!.id)) {
+      for (const label of issue.labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+
+    res.json({
+      items: [...counts.entries()]
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+    });
+  }),
+);
+
+projectsRouter.get(
   '/:projectKey/members',
   requireProjectAccess,
   asyncHandler(async (req, res) => {

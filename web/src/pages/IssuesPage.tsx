@@ -18,6 +18,7 @@ import {
 import { Avatar } from '../components/Avatar';
 import { PriorityBadge, StatusBadge, TypeBadge } from '../components/Badge';
 import { DueBadge } from '../components/DueBadge';
+import { LabelFilter, type LabelCount } from '../components/LabelFilter';
 import { Pagination } from '../components/Pagination';
 import { InlineSelect } from '../components/InlineSelect';
 import { Spinner } from '../components/Spinner';
@@ -30,6 +31,7 @@ export function IssuesPage() {
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState<Page<Issue> | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [labels, setLabels] = useState<LabelCount[]>([]);
   const [search, setSearch] = useState(params.get('q') ?? '');
 
   // Filters live in the query string so the back button and a shared link both
@@ -41,6 +43,7 @@ export function IssuesPage() {
       priority: params.get('priority') ?? '',
       type: params.get('type') ?? '',
       assigneeId: params.get('assigneeId') ?? '',
+      label: params.get('label') ?? '',
       sort: params.get('sort') ?? 'createdAt',
       order: params.get('order') ?? 'desc',
       page: Number(params.get('page') ?? '1'),
@@ -70,7 +73,19 @@ export function IssuesPage() {
     request<{ items: UserSummary[] }>(`/projects/${projectKey}/members`)
       .then((response) => setUsers(response.items))
       .catch(() => undefined);
+    request<{ items: LabelCount[] }>(`/projects/${projectKey}/labels`)
+      .then((response) => setLabels(response.items))
+      .catch(() => undefined);
   }, [projectKey]);
+
+  const selectedLabels = query.label ? query.label.split(',').filter(Boolean) : [];
+
+  const toggleLabel = (label: string) => {
+    const next = selectedLabels.includes(label)
+      ? selectedLabels.filter((each) => each !== label)
+      : [...selectedLabels, label];
+    update({ label: next.join(',') });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +210,13 @@ export function IssuesPage() {
           Clear
         </button>
       </div>
+
+      <LabelFilter
+        labels={labels}
+        selected={selectedLabels}
+        onToggle={toggleLabel}
+        onClear={() => update({ label: '' })}
+      />
 
       {!page ? (
         <Spinner label="Loading issues" testId="issues-loading" />

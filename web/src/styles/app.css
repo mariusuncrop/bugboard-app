@@ -602,3 +602,23 @@ fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-
 .badge--due-later { background: var(--surface-alt); color: var(--text-muted); border-color: var(--border); }
 
 .issue-card__due { display: flex; align-items: center; gap: 0.3rem; }
+
+/* Label filter ------------------------------------------------------------ */
+.label-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 1rem; }
+.label-filter__caption { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-right: 0.2rem; }
+
+.chip--toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.chip--toggle:hover { border-color: var(--accent); }
+.chip--on { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+/* No opacity here: fading the count over the chip's own background dropped it
+   to 2.85:1, under the 4.5:1 that small text needs. */
+.chip__count { font-variant-numeric: tabular-nums; font-weight: 600; }
