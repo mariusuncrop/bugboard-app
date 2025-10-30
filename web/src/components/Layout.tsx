@@ -26,7 +26,7 @@ export function Layout() {
     <div className="app">
       <header className="header" data-testid="app-header">
         <div className="header__inner">
-          <NavLink to="/projects" className="brand" data-testid="brand">
+          <NavLink to="/" className="brand" data-testid="brand">
             <span className="brand__mark" aria-hidden="true">
               BB
             </span>
@@ -71,6 +71,9 @@ export function Layout() {
             </>
           ) : (
             <nav className="nav" aria-label="Main">
+              <NavLink to="/" end data-testid="nav-home">
+                Home
+              </NavLink>
               <NavLink to="/projects" end data-testid="nav-projects">
                 Projects
               </NavLink>

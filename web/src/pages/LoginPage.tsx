@@ -21,7 +21,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Where RequireAuth sent this visitor from, so signing in returns them there.
-  const from = (location.state as { from?: string } | null)?.from ?? '/projects';
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
 
   // This renders the moment login succeeds, so it — not the navigate below —
   // decides the destination. Both have to agree.

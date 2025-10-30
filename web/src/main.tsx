@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { AuthProvider } from './lib/auth';
@@ -14,6 +14,7 @@ import { IssuesPage } from './pages/IssuesPage';
 import { LoginPage } from './pages/LoginPage';
 import { NewIssuePage } from './pages/NewIssuePage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { HomePage } from './pages/HomePage';
 import { NewProjectPage } from './pages/NewProjectPage';
 import { ProjectSettingsPage } from './pages/ProjectSettingsPage';
 import { ProjectsPage } from './pages/ProjectsPage';
@@ -36,7 +37,7 @@ createRoot(document.getElementById('root')!).render(
                   </RequireAuth>
                 }
               >
-                <Route index element={<Navigate to="/projects" replace />} />
+                <Route index element={<HomePage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/new" element={<NewProjectPage />} />
                 <Route path="/projects/:projectKey/board" element={<BoardPage />} />

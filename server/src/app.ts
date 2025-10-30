@@ -11,6 +11,7 @@ import { boardRouter } from './routes/board.js';
 import { configRouter } from './routes/config.js';
 import { commentsRouter } from './routes/comments.js';
 import { issuesRouter, projectIssuesRouter } from './routes/issues.js';
+import { meRouter } from './routes/me.js';
 import { projectsRouter } from './routes/projects.js';
 import { statsRouter } from './routes/stats.js';
 import { testRouter } from './routes/test.js';
@@ -47,6 +48,7 @@ export function createApp(): Express {
   app.use('/api/users', usersRouter);
   app.use('/api/config', configRouter);
   app.use('/api/test', testRouter);
+  app.use('/api/me', meRouter);
 
   // Collections live under their project; single issues keep a short URL and
   // derive the project from the key.

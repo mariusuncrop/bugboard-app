@@ -622,3 +622,14 @@ fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-
 /* No opacity here: fading the count over the chip's own background dropped it
    to 2.85:1, under the 4.5:1 that small text needs. */
 .chip__count { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Home -------------------------------------------------------------------- */
+.home-project { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.home-project .muted { margin-left: auto; font-size: 0.82rem; }
+
+.home-issue { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+.home-issue:last-child { border-bottom: none; }
+.home-issue__key { font-size: 0.78rem; font-weight: 700; }
+.home-issue__title { grid-column: 2; color: var(--text); text-decoration: none; }
+.home-issue__title:hover { text-decoration: underline; }
+.home-issue__meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 0.3rem; }
