@@ -633,3 +633,10 @@ fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-
 .home-issue__title { grid-column: 2; color: var(--text); text-decoration: none; }
 .home-issue__title:hover { text-decoration: underline; }
 .home-issue__meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+/* Linked issues ----------------------------------------------------------- */
+.issue-link { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.issue-link__wording { font-size: 0.8rem; color: var(--text-muted); min-width: 92px; }
+.issue-link__key { font-size: 0.8rem; font-weight: 700; }
+.issue-link__title { flex: 1 1 140px; min-width: 0; }
+.issue-link .link--danger { margin-left: auto; }

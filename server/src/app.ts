@@ -11,6 +11,7 @@ import { boardRouter } from './routes/board.js';
 import { configRouter } from './routes/config.js';
 import { commentsRouter } from './routes/comments.js';
 import { issuesRouter, projectIssuesRouter } from './routes/issues.js';
+import { linksRouter } from './routes/links.js';
 import { meRouter } from './routes/me.js';
 import { projectsRouter } from './routes/projects.js';
 import { statsRouter } from './routes/stats.js';
@@ -57,6 +58,7 @@ export function createApp(): Express {
   app.use('/api/projects/:projectKey/stats', statsRouter);
   app.use('/api/projects', projectsRouter);
 
+  app.use('/api', linksRouter);
   app.use('/api', commentsRouter);
   app.use('/api', attachmentsRouter);
   app.use('/api/issues', issuesRouter);

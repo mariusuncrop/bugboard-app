@@ -17,10 +17,26 @@ const dataFile = process.env.DATA_FILE
  */
 let db: Database = load();
 
+/**
+ * A file written by an older build can be missing collections added since. Fill
+ * them in rather than letting every request fail on an undefined array.
+ */
+function normalise(data: Partial<Database>): Database {
+  const seeded = buildSeedDatabase();
+  return {
+    users: data.users ?? seeded.users,
+    projects: data.projects ?? seeded.projects,
+    issues: data.issues ?? [],
+    comments: data.comments ?? [],
+    attachments: data.attachments ?? [],
+    links: data.links ?? [],
+  };
+}
+
 function load(): Database {
   if (existsSync(dataFile)) {
     try {
-      return JSON.parse(readFileSync(dataFile, 'utf8')) as Database;
+      return normalise(JSON.parse(readFileSync(dataFile, 'utf8')) as Partial<Database>);
     } catch {
       console.warn(`[store] ${dataFile} was unreadable — falling back to the seed data.`);
     }

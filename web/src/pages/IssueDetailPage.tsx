@@ -14,6 +14,8 @@ import {
   type Attachment,
   type Comment,
   type Issue,
+  type IssueLink,
+  type LinkType,
   type UserSummary,
 } from '../lib/types';
 import { Avatar } from '../components/Avatar';
@@ -21,6 +23,8 @@ import { Label, PriorityBadge, StatusBadge, TypeBadge } from '../components/Badg
 import { DueBadge } from '../components/DueBadge';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FileDropZone } from '../components/FileDropZone';
+import { IssueLinks } from '../components/IssueLinks';
+import { Subtasks } from '../components/Subtasks';
 import { Spinner } from '../components/Spinner';
 
 export function IssueDetailPage() {
@@ -32,6 +36,12 @@ export function IssueDetailPage() {
   const [issue, setIssue] = useState<Issue | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [links, setLinks] = useState<IssueLink[]>([]);
+  const [children, setChildren] = useState<Issue[]>([]);
+  const [subtaskError, setSubtaskError] = useState<string | null>(null);
+  const [addingSubtask, setAddingSubtask] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [uploadRules, setUploadRules] = useState<UploadRules | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -43,14 +53,18 @@ export function IssueDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
-    const [issueResponse, commentResponse, attachmentResponse] = await Promise.all([
+    const [issueResponse, commentResponse, attachmentResponse, linkResponse, childResponse] = await Promise.all([
       request<{ issue: Issue }>(`/issues/${key}`),
       request<{ items: Comment[] }>(`/issues/${key}/comments`),
       request<{ items: Attachment[] }>(`/issues/${key}/attachments`),
+      request<{ items: IssueLink[] }>(`/issues/${key}/links`),
+      request<{ items: Issue[] }>(`/issues/${key}/children`),
     ]);
     setIssue(issueResponse.issue);
     setComments(commentResponse.items);
     setAttachments(attachmentResponse.items);
+    setLinks(linkResponse.items);
+    setChildren(childResponse.items);
   }, [key]);
 
   useEffect(() => {
@@ -150,6 +164,60 @@ export function IssueDetailPage() {
     }
   };
 
+  const addLink = async (type: LinkType, target: string) => {
+    setLinking(true);
+    setLinkError(null);
+    try {
+      const response = await request<{ link: IssueLink }>(`/issues/${key}/links`, {
+        method: 'POST',
+        body: { type, target },
+      });
+      setLinks((current) => [...current, response.link]);
+      notify(`${key} now ${response.link.wording} ${response.link.issue?.key}.`);
+    } catch (error) {
+      setLinkError(error instanceof ApiError ? error.detail : 'Could not link the issues.');
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const removeLink = async (id: string) => {
+    try {
+      await request<void>(`/links/${id}`, { method: 'DELETE' });
+      setLinks((current) => current.filter((link) => link.id !== id));
+      notify('Link removed.');
+    } catch {
+      notify('Could not remove the link.', 'error');
+    }
+  };
+
+  const addSubtask = async (title: string) => {
+    setAddingSubtask(true);
+    setSubtaskError(null);
+    try {
+      const response = await request<{ issue: Issue }>(`/projects/${projectKey}/issues`, {
+        method: 'POST',
+        body: { title, type: 'task', parentId: key },
+      });
+      setChildren((current) => [...current, response.issue]);
+      notify(`${response.issue.key} added under ${key}.`);
+    } catch (error) {
+      setSubtaskError(error instanceof ApiError ? error.detail : 'Could not add the subtask.');
+    } finally {
+      setAddingSubtask(false);
+    }
+  };
+
+  const detachSubtask = async (childKey: string) => {
+    try {
+      await request(`/issues/${childKey}`, { method: 'PATCH', body: { parentId: null } });
+      setChildren((current) => current.filter((child) => child.key !== childKey));
+      notify(`${childKey} is no longer a subtask.`);
+    } catch {
+      notify('Could not detach the subtask.', 'error');
+    }
+  };
+
   const deleteIssue = async () => {
     setDeleting(true);
     try {
@@ -185,10 +253,25 @@ export function IssueDetailPage() {
       <header className="page__header">
         <div>
           <p className="breadcrumb">
-            <Link to={projectPath(projectKey, "/issues")} data-testid="back-to-issues">
+            <Link to={projectPath(projectKey, '/issues')} data-testid="back-to-issues">
               Issues
-            </Link>{' '}
-            / <span data-testid="issue-key">{issue.key}</span>
+            </Link>
+            {issue.ancestors
+              .slice()
+              .reverse()
+              .map((ancestor) => (
+                <span key={ancestor.id}>
+                  {' / '}
+                  <Link
+                    to={projectPath(projectKey, `/issues/${ancestor.key}`)}
+                    data-testid={`ancestor-${ancestor.key}`}
+                  >
+                    {ancestor.key}
+                  </Link>
+                </span>
+              ))}
+            {' / '}
+            <span data-testid="issue-key">{issue.key}</span>
           </p>
           <h1 data-testid="issue-title">{issue.title}</h1>
           <p className="muted" data-testid="issue-reported">
@@ -273,6 +356,24 @@ export function IssueDetailPage() {
             </div>
             {uploading ? <Spinner label="Uploading" testId="attachment-uploading" /> : null}
           </div>
+
+          <Subtasks
+            projectKey={projectKey}
+            children={children}
+            busy={addingSubtask}
+            error={subtaskError}
+            onAdd={(title) => void addSubtask(title)}
+            onDetach={(childKey) => void detachSubtask(childKey)}
+          />
+
+          <IssueLinks
+            projectKey={projectKey}
+            links={links}
+            busy={linking}
+            error={linkError}
+            onAdd={(type, target) => void addLink(type, target)}
+            onRemove={(id) => void removeLink(id)}
+          />
 
           <div className="card">
             <h2>

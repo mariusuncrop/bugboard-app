@@ -48,8 +48,22 @@ export interface Issue {
   position: number;
   /** Calendar date (YYYY-MM-DD), or null when the issue has no deadline. */
   dueOn: string | null;
+  /** The issue this one sits under, or null when it stands on its own. */
+  parentId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export const LINK_TYPES = ['relates', 'blocks', 'duplicates'] as const;
+export type LinkType = (typeof LINK_TYPES)[number];
+
+export interface IssueLink {
+  id: string;
+  type: LinkType;
+  /** The issue the link was made from. Direction matters for "blocks". */
+  fromIssueId: string;
+  toIssueId: string;
+  createdAt: string;
 }
 
 export interface Comment {
@@ -76,6 +90,7 @@ export interface Database {
   users: User[];
   projects: Project[];
   issues: Issue[];
+  links: IssueLink[];
   comments: Comment[];
   attachments: Attachment[];
 }

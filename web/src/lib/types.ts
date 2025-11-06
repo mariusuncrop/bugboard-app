@@ -1,6 +1,25 @@
 export type Status = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
 export type IssueType = 'bug' | 'task';
+export type LinkType = 'relates' | 'blocks' | 'duplicates';
+
+export interface IssueLink {
+  id: string;
+  type: LinkType;
+  direction: 'outward' | 'inward';
+  /** How the link reads from the issue you are looking at. */
+  wording: string;
+  issue: { id: string; key: string; title: string; status: Status; type: IssueType } | null;
+}
+
+export const LINK_TYPES: LinkType[] = ['relates', 'blocks', 'duplicates'];
+
+export const LINK_TYPE_LABELS: Record<LinkType, string> = {
+  relates: 'relates to',
+  blocks: 'blocks',
+  duplicates: 'duplicates',
+};
+
 export type DueState = 'overdue' | 'today' | 'soon' | 'later' | 'none';
 export type Role = 'admin' | 'member';
 
@@ -59,6 +78,10 @@ export interface Issue {
   reporter: UserSummary | null;
   commentCount: number;
   attachmentCount: number;
+  linkCount: number;
+  parent: { id: string; key: string; title: string; status: Status } | null;
+  ancestors: { id: string; key: string; title: string }[];
+  childCount: number;
   project: { id: string; key: string; name: string } | null;
 }
 

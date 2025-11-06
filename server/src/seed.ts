@@ -437,6 +437,7 @@ export function buildSeedDatabase(): Database {
       // Relative to today, so the overdue and due-soon colours always have
       // something to show whenever the fixture is restored.
       dueOn: DUE_OFFSETS[index % DUE_OFFSETS.length]!,
+      parentId: null,
       createdAt,
       updatedAt: at(index * 5 + 2),
     };
@@ -456,5 +457,6 @@ export function buildSeedDatabase(): Database {
     issues,
     comments,
     attachments: [],
+    links: [],
   };
 }

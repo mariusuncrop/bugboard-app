@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { ApiError, asyncHandler, parse } from '../lib/http.js';
-import { findVisibleIssue, projectOf, requireProjectAccess } from '../lib/projects.js';
+import { ancestorsOf, findVisibleIssue, projectOf, requireProjectAccess } from '../lib/projects.js';
 import { dueState } from '../lib/dates.js';
 import { issueDto } from '../lib/serialize.js';
 import { store } from '../store.js';
@@ -29,6 +29,7 @@ const createSchema = z.object({
   status: z.enum(STATUSES, { errorMap: () => ({ message: 'Unknown status.' }) }).default('backlog'),
   assigneeId: z.string().nullable().default(null),
   labels: labelsSchema.default([]),
+  parentId: z.string().nullable().default(null),
   dueOn: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a calendar date, as YYYY-MM-DD.')
@@ -74,6 +75,37 @@ function assertAssignable(project: Project, assigneeId: string | null | undefine
   if (user.role !== 'admin' && !project.memberIds.includes(user.id)) {
     throw ApiError.badRequest('The request body is invalid.', [
       { path: 'assigneeId', message: `${user.name} is not a member of ${project.key}.` },
+    ]);
+  }
+}
+
+/**
+ * A parent has to be a real issue, in the same project, and not the issue
+ * itself or anything already beneath it — otherwise the tree closes into a loop
+ * that every walk up it would spin on.
+ */
+function assertParentAllowed(issue: Issue | null, project: Project, parentId: string | null | undefined): void {
+  if (!parentId) return;
+
+  const parent = store.data.issues.find((candidate) => candidate.id === parentId || candidate.key === parentId);
+  if (!parent) {
+    throw ApiError.badRequest('The request body is invalid.', [
+      { path: 'parentId', message: 'No issue matches that parent.' },
+    ]);
+  }
+  if (parent.projectId !== project.id) {
+    throw ApiError.badRequest('The request body is invalid.', [
+      { path: 'parentId', message: `${parent.key} is in another project.` },
+    ]);
+  }
+  if (issue && parent.id === issue.id) {
+    throw ApiError.badRequest('The request body is invalid.', [
+      { path: 'parentId', message: 'An issue cannot be its own parent.' },
+    ]);
+  }
+  if (issue && ancestorsOf(parent).some((ancestor) => ancestor.id === issue.id)) {
+    throw ApiError.badRequest('The request body is invalid.', [
+      { path: 'parentId', message: `${parent.key} already sits beneath ${issue.key}.` },
     ]);
   }
 }
@@ -156,6 +188,7 @@ projectIssuesRouter.post(
     const body = parse(createSchema, req.body);
     const project = req.project!;
     assertAssignable(project, body.assigneeId);
+    assertParentAllowed(null, project, body.parentId);
 
     const issue = store.mutate((data) => {
       project.counter += 1;
@@ -173,6 +206,9 @@ projectIssuesRouter.post(
         reporterId: req.user!.id,
         labels: body.labels,
         dueOn: body.dueOn,
+        parentId: body.parentId
+          ? (data.issues.find((c) => c.id === body.parentId || c.key === body.parentId)?.id ?? null)
+          : null,
         position: data.issues.filter(
           (candidate) => candidate.projectId === project.id && candidate.status === body.status,
         ).length,
@@ -206,6 +242,11 @@ issuesRouter.patch(
     const issue = findVisibleIssue(req.user!, req.params.idOrKey!);
     const body = parse(updateSchema, req.body);
     assertAssignable(projectOf(issue), body.assigneeId);
+    assertParentAllowed(issue, projectOf(issue), body.parentId);
+    if (body.parentId) {
+      body.parentId =
+        store.data.issues.find((c) => c.id === body.parentId || c.key === body.parentId)?.id ?? null;
+    }
 
     const previousStatus = issue.status;
     store.mutate(() => {
@@ -218,6 +259,19 @@ issuesRouter.patch(
     });
 
     res.json({ issue: issueDto(issue) });
+  }),
+);
+
+issuesRouter.get(
+  '/:idOrKey/children',
+  asyncHandler(async (req, res) => {
+    const issue = findVisibleIssue(req.user!, req.params.idOrKey!);
+    res.json({
+      items: store.data.issues
+        .filter((candidate) => candidate.parentId === issue.id)
+        .sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
+        .map(issueDto),
+    });
   }),
 );
 
@@ -261,6 +315,13 @@ issuesRouter.delete(
       data.issues = data.issues.filter((candidate) => candidate.id !== issue.id);
       data.comments = data.comments.filter((comment) => comment.issueId !== issue.id);
       data.attachments = data.attachments.filter((attachment) => attachment.issueId !== issue.id);
+      data.links = data.links.filter(
+        (link) => link.fromIssueId !== issue.id && link.toIssueId !== issue.id,
+      );
+      // Children outlive their parent; they just stop being subtasks.
+      for (const child of data.issues) {
+        if (child.parentId === issue.id) child.parentId = null;
+      }
       compact(issue.projectId, issue.status);
     });
 

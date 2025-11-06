@@ -60,6 +60,23 @@ export function assertCanSeeIssue(user: PublicUser, issue: Issue): void {
   assertCanSee(user, projectOf(issue));
 }
 
+/** Walks up the parent chain, nearest first. */
+export function ancestorsOf(issue: Issue): Issue[] {
+  const chain: Issue[] = [];
+  const seen = new Set<string>([issue.id]);
+  let current = issue.parentId;
+
+  while (current && !seen.has(current)) {
+    const parent = store.data.issues.find((candidate) => candidate.id === current);
+    if (!parent) break;
+    chain.push(parent);
+    seen.add(parent.id);
+    current = parent.parentId;
+  }
+
+  return chain;
+}
+
 export function findIssue(idOrKey: string): Issue {
   const needle = idOrKey.toLowerCase();
   const issue = store.data.issues.find(
