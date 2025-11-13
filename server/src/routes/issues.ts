@@ -135,6 +135,7 @@ projectIssuesRouter.get(
     const types = csv(query.type);
     const labels = csv(query.label);
     const dueStates = csv(query.due);
+    const assignees = csv(query.assigneeId);
     const term = query.q?.toLowerCase();
 
     const filtered = store.data.issues.filter((issue) => {
@@ -143,9 +144,11 @@ projectIssuesRouter.get(
       if (priorities.length && !priorities.includes(issue.priority)) return false;
       if (types.length && !types.includes(issue.type)) return false;
       if (labels.length && !labels.some((label) => issue.labels.includes(label))) return false;
-      if (query.assigneeId === 'unassigned' && issue.assigneeId !== null) return false;
-      if (query.assigneeId && query.assigneeId !== 'unassigned' && issue.assigneeId !== query.assigneeId) {
-        return false;
+      if (assignees.length) {
+        const matches = assignees.some((id) =>
+          id === 'unassigned' ? issue.assigneeId === null : issue.assigneeId === id,
+        );
+        if (!matches) return false;
       }
       if (dueStates.length && !dueStates.includes(dueState(issue.dueOn))) return false;
       if (term && !`${issue.key} ${issue.title} ${issue.description}`.toLowerCase().includes(term)) {

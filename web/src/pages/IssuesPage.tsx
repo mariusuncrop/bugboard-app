@@ -17,6 +17,7 @@ import {
 } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { PriorityBadge, StatusBadge, TypeBadge } from '../components/Badge';
+import { AssigneeFilter } from '../components/AssigneeFilter';
 import { DueBadge } from '../components/DueBadge';
 import { LabelFilter, type LabelCount } from '../components/LabelFilter';
 import { Pagination } from '../components/Pagination';
@@ -79,6 +80,15 @@ export function IssuesPage() {
   }, [projectKey]);
 
   const selectedLabels = query.label ? query.label.split(',').filter(Boolean) : [];
+  const selectedAssignees = query.assigneeId ? query.assigneeId.split(',').filter(Boolean) : [];
+
+  const toggleAssignee = (value: string) =>
+    update({
+      assigneeId: (selectedAssignees.includes(value)
+        ? selectedAssignees.filter((each) => each !== value)
+        : [...selectedAssignees, value]
+      ).join(','),
+    });
 
   const toggleLabel = (label: string) => {
     const next = selectedLabels.includes(label)
@@ -189,27 +199,12 @@ export function IssuesPage() {
           </select>
         </label>
 
-        <label className="field field--inline">
-          <span>Assignee</span>
-          <select
-            data-testid="filter-assignee"
-            value={query.assigneeId}
-            onChange={(e) => update({ assigneeId: e.target.value })}
-          >
-            <option value="">Everyone</option>
-            <option value="unassigned">Unassigned</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <button type="button" className="button button--ghost" data-testid="filters-clear" onClick={() => setParams(new URLSearchParams())}>
           Clear
         </button>
       </div>
+
+      <AssigneeFilter members={users} selected={selectedAssignees} onToggle={toggleAssignee} />
 
       <LabelFilter
         labels={labels}

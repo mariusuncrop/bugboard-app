@@ -21,14 +21,30 @@ boardRouter.get(
   requireAuth,
   requireProjectAccess,
   asyncHandler(async (req, res) => {
-    const assigneeId = typeof req.query.assigneeId === 'string' ? req.query.assigneeId : undefined;
-    const priority = typeof req.query.priority === 'string' ? req.query.priority : undefined;
+    const asString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+    const csv = (value: string | undefined): string[] =>
+      value ? value.split(',').map((part) => part.trim()).filter(Boolean) : [];
+
+    // The board takes the same filters as the issue list, so a view set up in
+    // one reads the same in the other.
+    const assignees = csv(asString(req.query.assigneeId));
+    const priorities = csv(asString(req.query.priority));
+    const types = csv(asString(req.query.type));
+    const labels = csv(asString(req.query.label));
+    const term = asString(req.query.q)?.trim().toLowerCase();
 
     const visible = store.data.issues.filter((issue) => {
       if (issue.projectId !== req.project!.id) return false;
-      if (assigneeId === 'unassigned' && issue.assigneeId !== null) return false;
-      if (assigneeId && assigneeId !== 'unassigned' && issue.assigneeId !== assigneeId) return false;
-      if (priority && issue.priority !== priority) return false;
+      if (assignees.length) {
+        const matches = assignees.some((id) =>
+          id === 'unassigned' ? issue.assigneeId === null : issue.assigneeId === id,
+        );
+        if (!matches) return false;
+      }
+      if (priorities.length && !priorities.includes(issue.priority)) return false;
+      if (types.length && !types.includes(issue.type)) return false;
+      if (labels.length && !labels.some((label) => issue.labels.includes(label))) return false;
+      if (term && !`${issue.key} ${issue.title} ${issue.description}`.toLowerCase().includes(term)) return false;
       return true;
     });
 

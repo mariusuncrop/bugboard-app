@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type DragEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, request } from '../lib/api';
 import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
@@ -13,10 +13,12 @@ import {
   type Status,
   type UserSummary,
 } from '../lib/types';
+import { AssigneeFilter } from '../components/AssigneeFilter';
 import { Avatar } from '../components/Avatar';
 import { Label, PriorityBadge, TypeBadge } from '../components/Badge';
 import { DueBadge } from '../components/DueBadge';
 import { InlineSelect } from '../components/InlineSelect';
+import { ISSUE_TYPES } from '../lib/types';
 import { Spinner } from '../components/Spinner';
 
 export function BoardPage() {
@@ -24,22 +26,53 @@ export function BoardPage() {
   const { notify } = useToast();
   const [columns, setColumns] = useState<BoardColumn[] | null>(null);
   const [users, setUsers] = useState<UserSummary[]>([]);
-  const [assigneeId, setAssigneeId] = useState('');
-  const [priority, setPriority] = useState('');
+  const [params, setParams] = useSearchParams();
+  const assigneeId = params.get('assigneeId') ?? '';
+  const priority = params.get('priority') ?? '';
+  const type = params.get('type') ?? '';
+  const q = params.get('q') ?? '';
+  const [search, setSearch] = useState(q);
+
+  const update = (patch: Record<string, string>) => {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setParams(next);
+  };
+
+  const selectedAssignees = assigneeId ? assigneeId.split(',').filter(Boolean) : [];
+
+  const toggleAssignee = (value: string) =>
+    update({
+      assigneeId: (selectedAssignees.includes(value)
+        ? selectedAssignees.filter((each) => each !== value)
+        : [...selectedAssignees, value]
+      ).join(','),
+    });
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<Status | null>(null);
 
   const loadBoard = useCallback(async () => {
     const response = await request<{ columns: BoardColumn[] }>(`/projects/${projectKey}/board`, {
-      query: { assigneeId, priority },
+      query: { assigneeId, priority, type, q },
     });
     setColumns(response.columns);
-  }, [assigneeId, priority, projectKey]);
+  }, [assigneeId, priority, type, q, projectKey]);
 
   useEffect(() => {
     setColumns(null);
     loadBoard().catch(() => notify('Could not load the board.', 'error'));
   }, [loadBoard, notify]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (search !== q) update({ q: search });
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   useEffect(() => {
     // Only project members can be assigned work here, so only they can be
@@ -106,19 +139,25 @@ export function BoardPage() {
           <p className="muted">Drag a card between columns, or use the move control on each card.</p>
         </div>
 
-        <div className="filters" data-testid="board-filters">
+        <div className="filters filters--wrap" data-testid="board-filters">
+          <label className="field field--inline field--grow">
+            <span className="sr-only">Search this board</span>
+            <input
+              type="search"
+              placeholder="Search by key, title or description"
+              data-testid="board-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+
           <label className="field field--inline">
-            <span>Assignee</span>
-            <select
-              data-testid="board-filter-assignee"
-              value={assigneeId}
-              onChange={(event) => setAssigneeId(event.target.value)}
-            >
-              <option value="">Everyone</option>
-              <option value="unassigned">Unassigned</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
+            <span>Type</span>
+            <select data-testid="board-filter-type" value={type} onChange={(e) => update({ type: e.target.value })}>
+              <option value="">Any</option>
+              {ISSUE_TYPES.map((value) => (
+                <option key={value} value={value}>
+                  {value === 'bug' ? 'Bug' : 'Task'}
                 </option>
               ))}
             </select>
@@ -129,7 +168,7 @@ export function BoardPage() {
             <select
               data-testid="board-filter-priority"
               value={priority}
-              onChange={(event) => setPriority(event.target.value)}
+              onChange={(event) => update({ priority: event.target.value })}
             >
               <option value="">Any</option>
               {PRIORITIES.map((value) => (
@@ -139,8 +178,22 @@ export function BoardPage() {
               ))}
             </select>
           </label>
+
+          <button
+            type="button"
+            className="button button--ghost"
+            data-testid="board-filters-clear"
+            onClick={() => {
+              setSearch('');
+              setParams(new URLSearchParams());
+            }}
+          >
+            Clear
+          </button>
         </div>
       </header>
+
+      <AssigneeFilter members={users} selected={selectedAssignees} onToggle={toggleAssignee} />
 
       {!columns ? (
         <Spinner label="Loading board" testId="board-loading" />

@@ -640,3 +640,29 @@ fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-
 .issue-link__key { font-size: 0.8rem; font-weight: 700; }
 .issue-link__title { flex: 1 1 140px; min-width: 0; }
 .issue-link .link--danger { margin-left: auto; }
+
+/* Assignee filter --------------------------------------------------------- */
+.assignee-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+
+.assignee-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.assignee-chip:hover { border-color: var(--accent); }
+.assignee-chip--on { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.assignee-chip__name { white-space: nowrap; }
+
+@media (max-width: 620px) {
+  .assignee-chip__name { display: none; }
+  .assignee-chip { padding: 0.15rem; }
+}
