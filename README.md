@@ -94,6 +94,10 @@ click one.
 | Comments | Create, delete, and permission rules (authors and admins only) |
 | File attachments | Multipart upload, a 2 MB cap, and a rejected MIME type list |
 | Drag and drop | A drop zone on both the issue page and the creation form, wrapped around a real file input so the pointer gesture is never the only way in |
+| Deadlines, coloured by urgency | The server decides overdue / today / soon / later, so every surface agrees and the states can be filtered |
+| Issue links and subtasks | Relationships with direction, and a tree that refuses to close into a loop |
+| Inline editing on the board and the list | Assignee and priority change without opening the issue |
+| A personal home page | The projects you are on and the work assigned to you, in one request |
 | Attaching files while filing an issue | Files are held client-side until the issue exists, then uploaded — a multi-step flow where the second step can fail on its own |
 | Toasts, modals and confirmation dialogs | Transient UI that tests have to wait for rather than sleep through |
 | A deliberately slow dashboard endpoint | A loading state that actually exists long enough to assert on |
@@ -161,11 +165,24 @@ GET    /api/attachments/:id
 DELETE /api/attachments/:id
 
 GET    /api/config                  upload limits, so a client can reject a file before sending it
+GET    /api/projects/:key/labels    labels in use, with counts
 GET    /api/projects/:key/board     issues grouped into columns
 GET    /api/projects/:key/stats     dashboard aggregates (deliberately slow)
 POST   /api/test/reset              restore the seed fixture
+GET    /api/config                  upload limits, so a client can reject a file before sending it
+GET    /api/me/summary              your projects and the work assigned to you
 GET    /api/health
+
+GET    /api/issues/:idOrKey/links
+POST   /api/issues/:idOrKey/links   { type, target } — relates / blocks / duplicates
+DELETE /api/links/:id
+GET    /api/issues/:idOrKey/children
 ```
+
+Issue relationships come in two shapes. **Links** are between peers: `relates`, `blocks` and `duplicates`, stored
+once but read from whichever end you are on — one issue blocks, the other is blocked by. **Parents** nest issues to
+any depth, and refuse anything that would close the tree into a loop, including a parent moved under its own
+grandchild. Both stay inside a single project.
 
 Errors always take the same shape, which makes them easy to assert on:
 
