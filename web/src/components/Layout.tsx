@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { projectPath, useCurrentProject, useProjects } from '../lib/projects';
 import { applyTheme, readTheme, type Theme } from '../lib/theme';
@@ -10,12 +10,24 @@ export function Layout() {
   const { projects } = useProjects();
   const project = useCurrentProject();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [theme, setTheme] = useState<Theme>(() => readTheme());
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  /**
+   * Switching keeps you on the same kind of page rather than always dropping you
+   * on a board — if you were looking at one project's issues, you want the
+   * other's. An issue's own page falls back to the list, since that issue key
+   * does not exist in the project you are moving to.
+   */
+  const sectionForSwitch = (): string => {
+    const match = pathname.match(/^\/projects\/[^/]+\/(board|issues|dashboard|settings)/);
+    return match ? `/${match[1]}` : '/board';
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -35,23 +47,33 @@ export function Layout() {
 
           {/* Only a project has a board, an issue list or a dashboard, so the
               navigation appears once one is open. */}
+          {/* Always available, so a project is one control away from anywhere —
+              including the home and project-list pages, which belong to no
+              project of their own. */}
+          {projects.length > 0 ? (
+            <label className="project-switcher" data-testid="project-switcher">
+              <span className="sr-only">Switch project</span>
+              <select
+                data-testid="project-select"
+                value={project?.key ?? ''}
+                onChange={(event) => {
+                  if (event.target.value) navigate(projectPath(event.target.value, sectionForSwitch()));
+                }}
+              >
+                {project ? null : (
+                  <option value="">Go to a project…</option>
+                )}
+                {projects.map((candidate) => (
+                  <option key={candidate.id} value={candidate.key}>
+                    {candidate.key} · {candidate.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           {project ? (
             <>
-              <label className="project-switcher" data-testid="project-switcher">
-                <span className="sr-only">Current project</span>
-                <select
-                  data-testid="project-select"
-                  value={project.key}
-                  onChange={(event) => navigate(projectPath(event.target.value, '/board'))}
-                >
-                  {projects.map((candidate) => (
-                    <option key={candidate.id} value={candidate.key}>
-                      {candidate.key} · {candidate.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
               <nav className="nav" aria-label="Main">
                 <NavLink to={projectPath(project.key, '/board')} data-testid="nav-board">
                   Board
