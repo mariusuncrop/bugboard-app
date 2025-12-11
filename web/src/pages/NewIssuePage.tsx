@@ -6,13 +6,17 @@ import { projectPath } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import { fetchUploadRules, rejectionReason, type UploadRules } from '../lib/uploads';
 import { FileDropZone } from '../components/FileDropZone';
+import { IssuePicker } from '../components/IssuePicker';
 import {
   ISSUE_TYPES,
+  LINK_TYPES,
+  LINK_TYPE_LABELS,
   PRIORITIES,
   PRIORITY_LABELS,
   STATUSES,
   STATUS_LABELS,
   type Issue,
+  type LinkType,
   type UserSummary,
 } from '../lib/types';
 
@@ -30,6 +34,11 @@ export function NewIssuePage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadRules, setUploadRules] = useState<UploadRules | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Links, like attachments, need an issue to hang off — they are held here
+  // until one exists.
+  const [linkType, setLinkType] = useState<LinkType>('relates');
+  const [pendingLinks, setPendingLinks] = useState<{ type: LinkType; key: string; title: string }[]>([]);
 
   const [form, setForm] = useState({
     title: '',
@@ -66,6 +75,16 @@ export function NewIssuePage() {
 
   const removeFile = (name: string) =>
     setPendingFiles((current) => current.filter((file) => file.name !== name));
+
+  const addPendingLink = (issue: { key: string; title: string }) =>
+    setPendingLinks((current) =>
+      current.some((link) => link.key === issue.key)
+        ? current
+        : [...current, { type: linkType, key: issue.key, title: issue.title }],
+    );
+
+  const removePendingLink = (key: string) =>
+    setPendingLinks((current) => current.filter((link) => link.key !== key));
 
   const set = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -113,25 +132,48 @@ export function NewIssuePage() {
       return;
     }
 
-    // The issue now exists. An upload that fails from here must not look like a
+    // The issue now exists. Anything that fails from here must not look like a
     // failed creation, so say what happened and still open the issue.
-    const failures: string[] = [];
+    // Tracked apart so the message can say which kind of thing went wrong.
+    const linkFailures: string[] = [];
+    const fileFailures: string[] = [];
+
+    for (const link of pendingLinks) {
+      try {
+        await request(`/issues/${issueKey}/links`, {
+          method: 'POST',
+          body: { type: link.type, target: link.key },
+        });
+      } catch (error) {
+        linkFailures.push(error instanceof ApiError ? error.detail : `${link.key} could not be linked.`);
+      }
+    }
+
     for (const [index, file] of pendingFiles.entries()) {
       setProgress({ current: index + 1, total: pendingFiles.length });
       try {
         await upload(`/issues/${issueKey}/attachments`, file);
       } catch (error) {
-        failures.push(error instanceof ApiError ? error.detail : `${file.name} could not be uploaded.`);
+        fileFailures.push(error instanceof ApiError ? error.detail : `${file.name} could not be uploaded.`);
       }
     }
     setProgress(null);
     setSubmitting(false);
 
-    if (failures.length > 0) {
-      notify(`${issueKey} created, but ${failures.length} file could not be attached.`, 'error');
-    } else if (pendingFiles.length > 0) {
-      const count = pendingFiles.length;
-      notify(`${issueKey} created with ${count} file${count === 1 ? '' : 's'} attached.`);
+    const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+    if (fileFailures.length > 0 || linkFailures.length > 0) {
+      const parts = [
+        ...(fileFailures.length ? [`${plural(fileFailures.length, 'file', 'files')} could not be attached`] : []),
+        ...(linkFailures.length ? [`${plural(linkFailures.length, 'issue', 'issues')} could not be linked`] : []),
+      ];
+      notify(`${issueKey} created, but ${parts.join(' and ')}.`, 'error');
+    } else if (pendingFiles.length > 0 || pendingLinks.length > 0) {
+      const parts = [
+        ...(pendingFiles.length ? [`${plural(pendingFiles.length, 'file', 'files')} attached`] : []),
+        ...(pendingLinks.length ? [`${plural(pendingLinks.length, 'issue', 'issues')} linked`] : []),
+      ];
+      notify(`${issueKey} created with ${parts.join(' and ')}.`);
     } else {
       notify(`${issueKey} created.`);
     }
@@ -329,6 +371,57 @@ export function NewIssuePage() {
             {pendingFiles.length === 0 ? (
               <li className="muted" data-testid="pending-attachments-empty">
                 No files chosen.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+
+        <div className="field" data-testid="issue-links-field">
+          <label htmlFor="link-search">Linked issues</label>
+          <div className="filters">
+            <label className="field field--inline">
+              <span className="sr-only">Link type</span>
+              <select
+                data-testid="new-link-type"
+                value={linkType}
+                onChange={(event) => setLinkType(event.target.value as LinkType)}
+              >
+                {LINK_TYPES.map((value) => (
+                  <option key={value} value={value}>
+                    {LINK_TYPE_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <IssuePicker
+              projectKey={projectKey}
+              exclude={pendingLinks.map((link) => link.key)}
+              testId="new-link-target"
+              placeholder="Search by key or title"
+              onPick={addPendingLink}
+            />
+          </div>
+          <p className="field__hint">Linked once the issue has been created.</p>
+
+          <ul className="list" data-testid="pending-links">
+            {pendingLinks.map((link) => (
+              <li key={link.key} className="issue-link" data-testid={`pending-link-${link.key}`}>
+                <span className="issue-link__wording">{LINK_TYPE_LABELS[link.type]}</span>
+                <span className="issue-link__key">{link.key}</span>
+                <span className="issue-link__title">{link.title}</span>
+                <button
+                  type="button"
+                  className="link link--danger"
+                  data-testid={`remove-link-${link.key}`}
+                  onClick={() => removePendingLink(link.key)}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+            {pendingLinks.length === 0 ? (
+              <li className="muted" data-testid="pending-links-empty">
+                Nothing linked yet.
               </li>
             ) : null}
           </ul>

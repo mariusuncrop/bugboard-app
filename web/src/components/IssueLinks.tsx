@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { IssuePicker } from './IssuePicker';
 import { projectPath } from '../lib/projects';
 import { LINK_TYPES, LINK_TYPE_LABELS, type IssueLink, type LinkType } from '../lib/types';
 import { StatusBadge, TypeBadge } from './Badge';
 
 interface Props {
   projectKey: string;
+  /** The issue being looked at — never offered as its own link target. */
+  issueKey: string;
   links: IssueLink[];
   busy: boolean;
   error: string | null;
@@ -13,15 +16,11 @@ interface Props {
   onRemove: (id: string) => void;
 }
 
-export function IssueLinks({ projectKey, links, busy, error, onAdd, onRemove }: Props) {
+export function IssueLinks({ projectKey, issueKey, links, busy, error, onAdd, onRemove }: Props) {
   const [type, setType] = useState<LinkType>('relates');
-  const [target, setTarget] = useState('');
 
-  const submit = () => {
-    if (!target.trim()) return;
-    onAdd(type, target.trim().toUpperCase());
-    setTarget('');
-  };
+  // Neither the issue itself nor anything already linked is worth offering.
+  const exclude = [issueKey, ...links.map((link) => link.issue?.key ?? '')];
 
   return (
     <div className="card" data-testid="issue-links">
@@ -79,30 +78,13 @@ export function IssueLinks({ projectKey, links, busy, error, onAdd, onRemove }: 
             ))}
           </select>
         </label>
-        <label className="field field--inline field--grow">
-          <span className="sr-only">Issue key to link</span>
-          <input
-            placeholder="WEB-4"
-            data-testid="link-target"
-            value={target}
-            onChange={(event) => setTarget(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                submit();
-              }
-            }}
-          />
-        </label>
-        <button
-          type="button"
-          className="button button--primary"
-          data-testid="add-link-button"
-          disabled={busy || target.trim() === ''}
-          onClick={submit}
-        >
-          Link
-        </button>
+        <IssuePicker
+          projectKey={projectKey}
+          exclude={exclude}
+          testId="link-target"
+          placeholder="Search by key or title"
+          onPick={(issue) => onAdd(type, issue.key)}
+        />
       </div>
 
       {error ? (

@@ -666,3 +666,44 @@ fieldset.field legend { font-size: 0.82rem; font-weight: 600; color: var(--text-
   .assignee-chip__name { display: none; }
   .assignee-chip { padding: 0.15rem; }
 }
+
+/* Issue picker ------------------------------------------------------------ */
+.issue-picker { position: relative; flex: 1 1 200px; min-width: 0; }
+
+.issue-picker__results {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.2rem);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.2rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.issue-picker__option {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.45rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.issue-picker__option:hover,
+.issue-picker__option--active { background: var(--surface-alt); }
+.issue-picker__key { font-weight: 700; font-size: 0.78rem; flex: none; }
+.issue-picker__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issue-picker__empty { padding: 0.4rem 0.45rem; color: var(--text-muted); font-size: 0.85rem; }

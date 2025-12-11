@@ -368,6 +368,7 @@ export function IssueDetailPage() {
 
           <IssueLinks
             projectKey={projectKey}
+            issueKey={issue.key}
             links={links}
             busy={linking}
             error={linkError}
