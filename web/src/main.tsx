@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
+import { RequireProject } from './components/RequireProject';
 import { AuthProvider } from './lib/auth';
 import { ProjectsProvider } from './lib/projects';
 import { applyTheme, readTheme } from './lib/theme';
@@ -40,12 +41,14 @@ createRoot(document.getElementById('root')!).render(
                 <Route index element={<HomePage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/projects/new" element={<NewProjectPage />} />
-                <Route path="/projects/:projectKey/board" element={<BoardPage />} />
-                <Route path="/projects/:projectKey/issues" element={<IssuesPage />} />
-                <Route path="/projects/:projectKey/issues/new" element={<NewIssuePage />} />
-                <Route path="/projects/:projectKey/issues/:issueKey" element={<IssueDetailPage />} />
-                <Route path="/projects/:projectKey/dashboard" element={<DashboardPage />} />
-                <Route path="/projects/:projectKey/settings" element={<ProjectSettingsPage />} />
+                <Route path="/projects/:projectKey" element={<RequireProject />}>
+                  <Route path="board" element={<BoardPage />} />
+                  <Route path="issues" element={<IssuesPage />} />
+                  <Route path="issues/new" element={<NewIssuePage />} />
+                  <Route path="issues/:issueKey" element={<IssueDetailPage />} />
+                  <Route path="dashboard" element={<DashboardPage />} />
+                  <Route path="settings" element={<ProjectSettingsPage />} />
+                </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

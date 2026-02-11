@@ -6,6 +6,7 @@ import { projectPath, useProjects } from '../lib/projects';
 import { useToast } from '../lib/toast';
 import type { Project, UserSummary } from '../lib/types';
 import { Avatar } from '../components/Avatar';
+import { ProjectNotFound } from '../components/RequireProject';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Spinner } from '../components/Spinner';
 
@@ -88,19 +89,9 @@ export function ProjectSettingsPage() {
     }
   };
 
-  if (notFound) {
-    return (
-      <section className="page" data-testid="project-not-found">
-        <h1>Project not found</h1>
-        <p className="muted">
-          No project matches <code>{projectKey}</code>, or you do not have access to it.
-        </p>
-        <Link to="/projects" className="button button--ghost">
-          Back to projects
-        </Link>
-      </section>
-    );
-  }
+  // The route guard has already checked the cached list; this covers a project
+  // that disappears between that check and this fetch.
+  if (notFound) return <ProjectNotFound projectKey={projectKey} />;
 
   if (!project) return <Spinner label="Loading project" testId="project-loading" />;
 
